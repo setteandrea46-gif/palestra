@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101418" />
+    <title>Scheda Palestra</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Scheda palestra</p>
+          <h1>Allenamenti</h1>
+        </div>
+        <button class="icon-button" id="resetApp" type="button" aria-label="Cancella dati">Reset</button>
+      </header>
+
+      <section class="panel import-panel" id="importSection">
+        <div class="section-heading">
+          <h2>Importa scheda</h2>
+          <p>Incolla il testo del personal trainer o carica un file .txt.</p>
+        </div>
+
+        <label class="file-picker" for="fileInput">
+          <span>Carica testo</span>
+          <input id="fileInput" type="file" accept=".txt,text/plain" />
+        </label>
+
+        <label class="field-label" for="planText">Testo scheda</label>
+        <textarea
+          id="planText"
+          rows="10"
+          placeholder="Esempio: Allenamento 1&#10;Panca piana 4x8 rec 90 sec&#10;Lat machine 3 x 12 recupero 60''"
+        ></textarea>
+
+        <button class="primary-button" id="parsePlan" type="button">Leggi scheda</button>
+      </section>
+
+      <section class="panel hidden" id="previewSection">
+        <div class="section-heading">
+          <h2>Anteprima</h2>
+          <p>Controlla gli esercizi letti prima di salvarli.</p>
+        </div>
+        <div id="previewList" class="preview-list"></div>
+        <div class="action-row">
+          <button class="secondary-button" id="editImport" type="button">Modifica</button>
+          <button class="primary-button" id="confirmPreview" type="button">Conferma</button>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="durationSection">
+        <div class="section-heading">
+          <h2>Durata programma</h2>
+          <p>Scegli date o numero di settimane.</p>
+        </div>
+
+        <div class="segmented-control" role="tablist" aria-label="Metodo durata">
+          <button class="segment active" id="datesMode" type="button">Date</button>
+          <button class="segment" id="weeksMode" type="button">Settimane</button>
+        </div>
+
+        <div id="dateFields" class="grid-fields">
+          <label>
+            <span>Inizio</span>
+            <input id="startDate" type="date" />
+          </label>
+          <label>
+            <span>Fine</span>
+            <input id="endDate" type="date" />
+          </label>
+        </div>
+
+        <label id="weeksField" class="hidden">
+          <span>Numero settimane</span>
+          <input id="weeksCount" type="number" min="1" max="52" value="8" />
+        </label>
+
+        <button class="primary-button" id="saveProgram" type="button">Salva programma</button>
+      </section>
+
+      <section class="hidden" id="workoutSection">
+        <div class="program-summary">
+          <div>
+            <p class="eyebrow">Programma attivo</p>
+            <h2 id="programDates">Durata non impostata</h2>
+          </div>
+          <button class="secondary-button compact" id="newImport" type="button">Nuova scheda</button>
+        </div>
+
+        <nav id="workoutTabs" class="workout-tabs" aria-label="Giorni di allenamento"></nav>
+        <div id="exerciseList" class="exercise-list"></div>
+      </section>
+    </main>
+
+    <template id="historyTemplate">
+      <details class="history">
+        <summary>Storico progressi</summary>
+        <div class="history-chart"></div>
+        <ol class="history-list"></ol>
+      </details>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>

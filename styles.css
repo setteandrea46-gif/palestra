@@ -1,0 +1,395 @@
+:root {
+  --bg: #101418;
+  --surface: #182027;
+  --surface-2: #202a32;
+  --text: #f4f7f8;
+  --muted: #9eacb5;
+  --line: #32404a;
+  --accent: #20c997;
+  --accent-strong: #12b886;
+  --danger: #ff6b6b;
+  --focus: #ffd166;
+  color-scheme: dark;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  width: min(100%, 520px);
+  margin: 0 auto;
+  padding: 18px 14px 28px;
+}
+
+.topbar,
+.program-summary,
+.action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.topbar {
+  margin-bottom: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0;
+  font-size: 2rem;
+  line-height: 1.05;
+}
+
+h2 {
+  margin-bottom: 5px;
+  font-size: 1.2rem;
+}
+
+h3 {
+  margin-bottom: 6px;
+  font-size: 1rem;
+}
+
+.panel {
+  margin-bottom: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.section-heading p,
+.program-summary h2,
+.exercise-meta,
+.last-weight,
+.empty-state {
+  color: var(--muted);
+}
+
+.field-label,
+label span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+textarea,
+input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0d1115;
+  color: var(--text);
+  outline: none;
+}
+
+textarea {
+  min-height: 230px;
+  margin-bottom: 12px;
+  padding: 13px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+input {
+  min-height: 48px;
+  padding: 10px 12px;
+  font-size: 1.04rem;
+}
+
+textarea:focus,
+input:focus,
+button:focus-visible {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.22);
+}
+
+.file-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  margin-bottom: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 800;
+}
+
+.file-picker input {
+  display: none;
+}
+
+.primary-button,
+.secondary-button,
+.icon-button,
+.segment {
+  min-height: 48px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0 14px;
+  font-weight: 850;
+}
+
+.primary-button {
+  width: 100%;
+  background: var(--accent);
+  color: #06110d;
+}
+
+.primary-button:active {
+  background: var(--accent-strong);
+}
+
+.secondary-button,
+.icon-button,
+.segment {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.icon-button {
+  min-width: 66px;
+  color: var(--danger);
+}
+
+.compact {
+  min-height: 40px;
+  padding-inline: 12px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.preview-list,
+.exercise-list {
+  display: grid;
+  gap: 12px;
+}
+
+.preview-day,
+.exercise-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.preview-day {
+  padding: 14px;
+}
+
+.preview-day ul {
+  margin: 10px 0 0;
+  padding-left: 20px;
+}
+
+.preview-day li {
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.action-row {
+  margin-top: 14px;
+}
+
+.action-row button {
+  flex: 1;
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.segment.active {
+  background: var(--accent);
+  color: #06110d;
+}
+
+.grid-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+#weeksField {
+  margin-bottom: 14px;
+}
+
+.program-summary {
+  margin: 4px 0 12px;
+}
+
+.program-summary h2 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.workout-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 -14px 14px;
+  padding: 0 14px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.workout-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.workout-tab {
+  flex: 0 0 auto;
+  min-width: 112px;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 850;
+}
+
+.workout-tab.active {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.exercise-card {
+  padding: 15px;
+}
+
+.exercise-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.exercise-meta {
+  min-width: 92px;
+  text-align: right;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.weight-row {
+  display: grid;
+  grid-template-columns: 1fr 96px;
+  gap: 10px;
+  align-items: end;
+}
+
+.weight-row input {
+  font-size: 1.55rem;
+  font-weight: 900;
+}
+
+.save-weight {
+  min-height: 54px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #06110d;
+  font-weight: 900;
+}
+
+.last-weight {
+  margin: 8px 0 0;
+  font-size: 0.94rem;
+}
+
+.history {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.history summary {
+  color: var(--accent);
+  font-weight: 850;
+}
+
+.history-chart {
+  display: flex;
+  align-items: end;
+  gap: 6px;
+  height: 78px;
+  margin: 12px 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: #0d1115;
+}
+
+.bar {
+  flex: 1;
+  min-width: 12px;
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+}
+
+.history-list {
+  margin: 0;
+  padding-left: 22px;
+  color: var(--muted);
+}
+
+.history-list li {
+  margin-bottom: 6px;
+}
+
+.empty-state {
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  text-align: center;
+}
+
+@media (min-width: 480px) {
+  .app-shell {
+    padding-top: 26px;
+  }
+}
