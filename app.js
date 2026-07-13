@@ -153,20 +153,42 @@ function parseExerciseLine(line) {
   const withoutBullets = line.replace(/^[-*•\d.)\s]+/, "").trim();
   if (!withoutBullets || isWorkoutHeading(withoutBullets)) return null;
 
-  const setRepMatch = withoutBullets.match(/(\d+)\s*(?:x|×|serie\s*da|sets?\s*of)\s*(\d+\+?|\d+\s*-\s*\d+|max)/i);
-  if (!setRepMatch) return null;
-
   const restMatch = withoutBullets.match(/(?:rec(?:upero)?|rest|pausa)\s*[:.]?\s*(\d+\s*(?:sec|secondi|s|''|"|min|m)?)/i);
-  const name = withoutBullets
-    .slice(0, setRepMatch.index)
+  const compactMatch = withoutBullets.match(/(\d+)\s*(?:x|×|serie\s*da|sets?\s*of)\s*(\d+\+?|\d+\s*-\s*\d+|max)/i);
+
+  if (compactMatch) {
+    const name = withoutBullets
+      .slice(0, compactMatch.index)
+      .replace(/[:,-]+$/g, "")
+      .trim();
+
+    return {
+      id: createExerciseId(name),
+      name: name || "Esercizio",
+      sets: compactMatch[1],
+      reps: compactMatch[2].replace(/\s+/g, ""),
+      rest: restMatch ? restMatch[1].replace(/''|"/g, " sec") : "",
+    };
+  }
+
+  const lineWithoutRest = withoutBullets.replace(restMatch?.[0] || "", "").trim();
+  const numberMatches = [...lineWithoutRest.matchAll(/\b\d+\+?(?:\s*-\s*\d+)?\b/g)];
+  if (numberMatches.length < 2) return null;
+
+  const setsMatch = numberMatches[0];
+  const repsMatch = numberMatches[1];
+  const name = lineWithoutRest
+    .slice(0, setsMatch.index)
     .replace(/[:,-]+$/g, "")
     .trim();
 
+  if (!name || name.length < 2) return null;
+
   return {
     id: createExerciseId(name),
-    name: name || "Esercizio",
-    sets: setRepMatch[1],
-    reps: setRepMatch[2].replace(/\s+/g, ""),
+    name,
+    sets: setsMatch[0],
+    reps: repsMatch[0].replace(/\s+/g, ""),
     rest: restMatch ? restMatch[1].replace(/''|"/g, " sec") : "",
   };
 }
@@ -594,7 +616,7 @@ function renderImagePreview(files) {
   els.readImages.classList.toggle("hidden", !state.selectedImages.length);
 }
 
-async function readImagesWithOcr() {
+async function readImagesWithOcr({ openPreview = true } = {}) {
   if (!state.selectedImages.length) return;
   if (!window.Tesseract) {
     els.ocrStatus.textContent = "OCR non caricato. Controlla internet e ricarica la pagina.";
@@ -602,33 +624,44 @@ async function readImagesWithOcr() {
   }
 
   els.readImages.disabled = true;
-  els.ocrStatus.textContent = "Sto leggendo le immagini...";
+  els.ocrStatus.textContent = "Sto leggendo la foto...";
   const chunks = [];
 
   for (let index = 0; index < state.selectedImages.length; index += 1) {
-    els.ocrStatus.textContent = `Lettura immagine ${index + 1} di ${state.selectedImages.length}`;
+    els.ocrStatus.textContent = `Lettura foto ${index + 1} di ${state.selectedImages.length}`;
     const result = await window.Tesseract.recognize(state.selectedImages[index].file, "ita+eng");
     chunks.push(result.data.text);
   }
 
-  els.planText.value = [els.planText.value, chunks.join("\n\n")].filter(Boolean).join("\n\n");
-  els.ocrStatus.textContent = "Testo estratto. Controllalo e premi Leggi scheda.";
+  els.planText.value = chunks.join("\n\n").trim();
+  els.ocrStatus.textContent = "Foto letta. Ho creato i box: controllali e modifica se serve.";
   els.readImages.disabled = false;
+
+  if (openPreview) {
+    preparePreviewFromText();
+  }
 }
 
 els.fileInput.addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
   els.planText.value = await file.text();
+  preparePreviewFromText();
 });
 
 els.imageInput.addEventListener("change", (event) => {
   renderImagePreview(event.target.files || []);
+  if (state.selectedImages.length) {
+    readImagesWithOcr().catch(() => {
+      els.ocrStatus.textContent = "Non sono riuscito a leggere la foto. Prova con una foto piu nitida.";
+      els.readImages.disabled = false;
+    });
+  }
 });
 
 els.readImages.addEventListener("click", () => {
   readImagesWithOcr().catch(() => {
-    els.ocrStatus.textContent = "Non sono riuscito a leggere l'immagine. Prova con una foto piu nitida.";
+    els.ocrStatus.textContent = "Non sono riuscito a leggere la foto. Prova con una foto piu nitida.";
     els.readImages.disabled = false;
   });
 });

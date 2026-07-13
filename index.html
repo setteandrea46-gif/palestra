@@ -19,36 +19,36 @@
 
       <section class="panel import-panel" id="importSection">
         <div class="section-heading">
-          <h2>Importa scheda</h2>
-          <p>Incolla testo, carica un .txt oppure usa foto/screenshot della scheda.</p>
+          <h2>Carica la foto della scheda</h2>
+          <p>L'app legge la foto e crea automaticamente Giorno 1, Giorno 2 e gli esercizi.</p>
         </div>
 
-        <div class="import-grid">
+        <label class="photo-picker" for="imageInput">
+          <span>Scatta o carica foto</span>
+          <small>Puoi scegliere anche piu immagini</small>
+          <input id="imageInput" type="file" accept="image/*" capture="environment" multiple />
+        </label>
+
+        <div class="import-grid fallback-import">
           <label class="file-picker" for="fileInput">
-            <span>Testo</span>
+            <span>File testo</span>
             <input id="fileInput" type="file" accept=".txt,text/plain" />
           </label>
-          <label class="file-picker" for="imageInput">
-            <span>Immagini</span>
-            <input id="imageInput" type="file" accept="image/*" multiple />
-          </label>
+          <button class="secondary-button" id="manualPlan" type="button">Crea vuota</button>
         </div>
 
         <div id="imagePreview" class="image-preview hidden"></div>
-        <button class="secondary-button hidden" id="readImages" type="button">Leggi immagini</button>
+        <button class="secondary-button hidden" id="readImages" type="button">Rileggi foto</button>
         <p class="status-line" id="ocrStatus"></p>
 
-        <label class="field-label" for="planText">Testo scheda</label>
+        <label class="field-label" for="planText">Testo letto dalla foto</label>
         <textarea
           id="planText"
           rows="10"
-          placeholder="Esempio: Allenamento 1&#10;Panca piana 4x8 rec 90 sec&#10;Lat machine 3 x 12 recupero 60''"
+          placeholder="Qui compare il testo letto dalla foto. Se una parola viene letta male, puoi correggerla prima di rileggere la scheda."
         ></textarea>
 
-        <div class="action-row">
-          <button class="secondary-button" id="manualPlan" type="button">Crea manuale</button>
-          <button class="primary-button" id="parsePlan" type="button">Leggi scheda</button>
-        </div>
+        <button class="primary-button" id="parsePlan" type="button">Crea box dal testo letto</button>
       </section>
 
       <section class="panel hidden" id="previewSection">

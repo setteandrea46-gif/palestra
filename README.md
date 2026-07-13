@@ -5,7 +5,7 @@ Web app mobile-first per importare una scheda di allenamento in formato testo, s
 ## Funzioni incluse
 
 - Import da testo incollato o file `.txt`
-- Import da immagini/foto/screenshot con OCR nel browser
+- Import automatico da immagini/foto/screenshot con OCR nel browser
 - Parser per giorni di allenamento come `Allenamento 1`, `Workout 1`, `Giorno A`, `Day 1`
 - Anteprima divisa per giorni, modificabile prima del salvataggio
 - Giorni ed esercizi aggiungibili o eliminabili
@@ -33,4 +33,5 @@ Leg curl 3x10
 ```
 
 Il parser accetta varianti comuni, purché ogni esercizio contenga serie e ripetizioni in forma simile a `4x8`.
-Se l'OCR da immagine non legge perfettamente la scheda, il testo estratto può essere corretto prima di creare i box dei giorni.
+Quando carichi o scatti una foto, l'app legge subito l'immagine e apre l'anteprima divisa per giorni.
+Se l'OCR non legge perfettamente la scheda, i box generati possono essere corretti prima del salvataggio.
