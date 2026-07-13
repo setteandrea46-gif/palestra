@@ -1,9 +1,11 @@
-const STORAGE_KEY = "gym-tracker-v1";
+const STORAGE_KEY = "gym-tracker-v2";
+const LEGACY_KEY = "gym-tracker-v1";
 
 const state = {
   parsedWorkouts: [],
   program: null,
   selectedWorkout: 0,
+  selectedImages: [],
 };
 
 const els = {
@@ -14,8 +16,14 @@ const els = {
   workoutSection: document.querySelector("#workoutSection"),
   planText: document.querySelector("#planText"),
   fileInput: document.querySelector("#fileInput"),
+  imageInput: document.querySelector("#imageInput"),
+  imagePreview: document.querySelector("#imagePreview"),
+  readImages: document.querySelector("#readImages"),
+  ocrStatus: document.querySelector("#ocrStatus"),
   parsePlan: document.querySelector("#parsePlan"),
+  manualPlan: document.querySelector("#manualPlan"),
   previewList: document.querySelector("#previewList"),
+  addPreviewWorkout: document.querySelector("#addPreviewWorkout"),
   editImport: document.querySelector("#editImport"),
   confirmPreview: document.querySelector("#confirmPreview"),
   datesMode: document.querySelector("#datesMode"),
@@ -32,6 +40,10 @@ const els = {
   newImport: document.querySelector("#newImport"),
   historyTemplate: document.querySelector("#historyTemplate"),
 };
+
+function uid(prefix = "id") {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -51,6 +63,14 @@ function formatDate(dateISO) {
   }).format(new Date(`${dateISO}T00:00:00`));
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 function normalizeExerciseName(name) {
   return name
     .toLowerCase()
@@ -61,7 +81,39 @@ function normalizeExerciseName(name) {
 }
 
 function createExerciseId(name) {
-  return normalizeExerciseName(name) || crypto.randomUUID();
+  return normalizeExerciseName(name) || uid("exercise");
+}
+
+function emptyExercise() {
+  return {
+    id: uid("exercise"),
+    name: "",
+    sets: "",
+    reps: "",
+    rest: "",
+  };
+}
+
+function emptyWorkout(index = 0) {
+  return {
+    id: uid("workout"),
+    title: `Giorno ${index + 1}`,
+    exercises: [emptyExercise()],
+  };
+}
+
+function cloneWorkouts(workouts) {
+  return workouts.map((workout, index) => ({
+    id: workout.id || uid("workout"),
+    title: workout.title || `Giorno ${index + 1}`,
+    exercises: (workout.exercises || []).map((exercise) => ({
+      id: exercise.id || createExerciseId(exercise.name),
+      name: exercise.name || "",
+      sets: exercise.sets || "",
+      reps: exercise.reps || "",
+      rest: exercise.rest || "",
+    })),
+  }));
 }
 
 function saveState() {
@@ -69,12 +121,16 @@ function saveState() {
 }
 
 function loadState() {
-  const raw = localStorage.getItem(STORAGE_KEY);
+  const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
   if (!raw) return;
 
   try {
     const saved = JSON.parse(raw);
     state.program = saved.program;
+    if (state.program?.workouts) {
+      state.program.workouts = cloneWorkouts(state.program.workouts);
+      state.program.history = state.program.history || {};
+    }
   } catch {
     localStorage.removeItem(STORAGE_KEY);
   }
@@ -86,10 +142,11 @@ function isWorkoutHeading(line) {
 }
 
 function workoutTitleFrom(line, index) {
-  const cleaned = line.trim();
-  const match = cleaned.match(/(allenamento|workout|giorno|day|sessione|scheda)\s*[:#-]?\s*([a-z]|\d+|uno|due|tre|quattro|cinque)?/i);
+  const match = line
+    .trim()
+    .match(/(allenamento|workout|giorno|day|sessione|scheda)\s*[:#-]?\s*([a-z]|\d+|uno|due|tre|quattro|cinque)?/i);
   const suffix = match?.[2] ? match[2].toUpperCase() : `${index + 1}`;
-  return `Workout ${suffix}`;
+  return `Giorno ${suffix}`;
 }
 
 function parseExerciseLine(line) {
@@ -110,7 +167,7 @@ function parseExerciseLine(line) {
     name: name || "Esercizio",
     sets: setRepMatch[1],
     reps: setRepMatch[2].replace(/\s+/g, ""),
-    rest: restMatch ? restMatch[1].replace(/''|"/g, " sec") : "Non indicato",
+    rest: restMatch ? restMatch[1].replace(/''|"/g, " sec") : "",
   };
 }
 
@@ -126,6 +183,7 @@ function parseWorkoutText(text) {
   lines.forEach((line) => {
     if (isWorkoutHeading(line)) {
       current = {
+        id: uid("workout"),
         title: workoutTitleFrom(line, workouts.length),
         exercises: [],
       };
@@ -137,7 +195,8 @@ function parseWorkoutText(text) {
     if (!exercise) return;
 
     if (!current) {
-      current = { title: "Workout 1", exercises: [] };
+      current = emptyWorkout(0);
+      current.exercises = [];
       workouts.push(current);
     }
 
@@ -156,20 +215,92 @@ function showOnly(section) {
   if (section === "duration") els.durationSection.classList.remove("hidden");
 }
 
+function updatePreviewModelFromInputs() {
+  const workoutCards = [...els.previewList.querySelectorAll(".preview-day")];
+  state.parsedWorkouts = workoutCards.map((card, workoutIndex) => {
+    const exercises = [...card.querySelectorAll(".preview-exercise")].map((row) => ({
+      id: row.dataset.exerciseId || uid("exercise"),
+      name: row.querySelector("[data-field='name']").value.trim(),
+      sets: row.querySelector("[data-field='sets']").value.trim(),
+      reps: row.querySelector("[data-field='reps']").value.trim(),
+      rest: row.querySelector("[data-field='rest']").value.trim(),
+    }));
+
+    return {
+      id: card.dataset.workoutId || uid("workout"),
+      title: card.querySelector("[data-field='title']").value.trim() || `Giorno ${workoutIndex + 1}`,
+      exercises: exercises.filter((exercise) => exercise.name || exercise.sets || exercise.reps || exercise.rest),
+    };
+  });
+}
+
+function makePreviewExerciseRow(exercise = emptyExercise()) {
+  const row = document.createElement("div");
+  row.className = "preview-exercise";
+  row.dataset.exerciseId = exercise.id || uid("exercise");
+  row.innerHTML = `
+    <label class="span-2">
+      <span>Esercizio</span>
+      <input data-field="name" type="text" value="${escapeHtml(exercise.name || "")}" placeholder="Panca piana" />
+    </label>
+    <label>
+      <span>Serie</span>
+      <input data-field="sets" type="number" min="1" value="${escapeHtml(exercise.sets || "")}" placeholder="4" />
+    </label>
+    <label>
+      <span>Rip.</span>
+      <input data-field="reps" type="text" value="${escapeHtml(exercise.reps || "")}" placeholder="8" />
+    </label>
+    <label class="span-2">
+      <span>Recupero</span>
+      <input data-field="rest" type="text" value="${escapeHtml(exercise.rest || "")}" placeholder="90 sec" />
+    </label>
+    <button class="remove-mini" type="button" aria-label="Togli esercizio">Togli</button>
+  `;
+
+  row.querySelector(".remove-mini").addEventListener("click", () => {
+    row.remove();
+    updatePreviewModelFromInputs();
+  });
+
+  row.addEventListener("input", updatePreviewModelFromInputs);
+  return row;
+}
+
 function renderPreview() {
   els.previewList.innerHTML = "";
 
-  state.parsedWorkouts.forEach((workout) => {
+  state.parsedWorkouts.forEach((workout, workoutIndex) => {
     const card = document.createElement("article");
     card.className = "preview-day";
+    card.dataset.workoutId = workout.id || uid("workout");
     card.innerHTML = `
-      <h3>${workout.title}</h3>
-      <ul>
-        ${workout.exercises
-          .map((exercise) => `<li>${exercise.name} · ${exercise.sets} x ${exercise.reps} · recupero ${exercise.rest}</li>`)
-          .join("")}
-      </ul>
+      <div class="preview-day-head">
+        <label>
+          <span>Nome giorno</span>
+          <input data-field="title" type="text" value="${escapeHtml(workout.title || `Giorno ${workoutIndex + 1}`)}" />
+        </label>
+        <button class="remove-day" type="button">Togli</button>
+      </div>
+      <div class="preview-exercises"></div>
+      <button class="secondary-button compact add-exercise" type="button">Aggiungi esercizio</button>
     `;
+
+    const list = card.querySelector(".preview-exercises");
+    (workout.exercises.length ? workout.exercises : [emptyExercise()]).forEach((exercise) => {
+      list.append(makePreviewExerciseRow(exercise));
+    });
+
+    card.querySelector("[data-field='title']").addEventListener("input", updatePreviewModelFromInputs);
+    card.querySelector(".remove-day").addEventListener("click", () => {
+      card.remove();
+      updatePreviewModelFromInputs();
+    });
+    card.querySelector(".add-exercise").addEventListener("click", () => {
+      list.append(makePreviewExerciseRow());
+      updatePreviewModelFromInputs();
+    });
+
     els.previewList.append(card);
   });
 }
@@ -216,13 +347,25 @@ function renderWorkoutTabs() {
     const button = document.createElement("button");
     button.className = `workout-tab ${index === state.selectedWorkout ? "active" : ""}`;
     button.type = "button";
-    button.textContent = workout.title;
+    button.textContent = workout.title || `Giorno ${index + 1}`;
     button.addEventListener("click", () => {
       state.selectedWorkout = index;
       renderWorkouts();
     });
     els.workoutTabs.append(button);
   });
+
+  const addButton = document.createElement("button");
+  addButton.className = "workout-tab add-tab";
+  addButton.type = "button";
+  addButton.textContent = "+ Giorno";
+  addButton.addEventListener("click", () => {
+    state.program.workouts.push(emptyWorkout(state.program.workouts.length));
+    state.selectedWorkout = state.program.workouts.length - 1;
+    saveState();
+    renderWorkouts();
+  });
+  els.workoutTabs.append(addButton);
 }
 
 function getExerciseHistory(exerciseId) {
@@ -242,7 +385,7 @@ function renderHistory(exercise) {
   const history = getExerciseHistory(exercise.id);
 
   if (!history.length) {
-    chart.innerHTML = "<p class=\"empty-state\">Aggiungi un peso per vedere la progressione.</p>";
+    chart.innerHTML = '<p class="empty-state">Aggiungi un peso per vedere la progressione.</p>';
     return historyNode;
   }
 
@@ -267,35 +410,72 @@ function renderHistory(exercise) {
   return historyNode;
 }
 
+function updateExercise(exerciseId, patch) {
+  const workout = state.program.workouts[state.selectedWorkout];
+  const exercise = workout.exercises.find((item) => item.id === exerciseId);
+  if (!exercise) return;
+  Object.assign(exercise, patch);
+  saveState();
+}
+
 function renderExerciseCard(exercise) {
   const card = document.createElement("article");
   card.className = "exercise-card";
   card.innerHTML = `
     <div class="exercise-header">
-      <div>
-        <h3>${exercise.name}</h3>
-        <p class="last-weight">${latestWeightLabel(exercise.id)}</p>
-      </div>
-      <p class="exercise-meta">${exercise.sets} x ${exercise.reps}<br>Rec ${exercise.rest}</p>
+      <label class="exercise-name-field">
+        <span>Nome esercizio</span>
+        <input class="exercise-name-input" type="text" value="${escapeHtml(exercise.name)}" placeholder="Esercizio" />
+      </label>
+      <button class="remove-mini remove-exercise-live" type="button">Togli</button>
     </div>
+    <div class="exercise-details-grid">
+      <label>
+        <span>Serie</span>
+        <input class="sets-input" type="number" min="1" value="${escapeHtml(exercise.sets)}" placeholder="4" />
+      </label>
+      <label>
+        <span>Rip.</span>
+        <input class="reps-input" type="text" value="${escapeHtml(exercise.reps)}" placeholder="8" />
+      </label>
+      <label>
+        <span>Rec.</span>
+        <input class="rest-input" type="text" value="${escapeHtml(exercise.rest)}" placeholder="90 sec" />
+      </label>
+    </div>
+    <p class="last-weight">${latestWeightLabel(exercise.id)}</p>
     <div class="weight-row">
       <label>
-        <span>Peso usato (kg)</span>
-        <input inputmode="decimal" type="number" min="0" step="0.5" placeholder="0" />
+        <span>Carico oggi (kg)</span>
+        <input class="weight-input" inputmode="decimal" type="number" min="0" step="0.5" placeholder="0" />
       </label>
       <button class="save-weight" type="button">Salva</button>
     </div>
   `;
 
-  const input = card.querySelector("input");
-  const button = card.querySelector(".save-weight");
   const latest = getExerciseHistory(exercise.id).at(-1);
-  if (latest) input.value = latest.weight;
+  const weightInput = card.querySelector(".weight-input");
+  if (latest) weightInput.value = latest.weight;
 
-  button.addEventListener("click", () => {
-    const weight = Number(input.value);
+  card.querySelector(".exercise-name-input").addEventListener("change", (event) => {
+    updateExercise(exercise.id, { name: event.target.value.trim() || "Esercizio" });
+    renderWorkouts();
+  });
+  card.querySelector(".sets-input").addEventListener("change", (event) => updateExercise(exercise.id, { sets: event.target.value.trim() }));
+  card.querySelector(".reps-input").addEventListener("change", (event) => updateExercise(exercise.id, { reps: event.target.value.trim() }));
+  card.querySelector(".rest-input").addEventListener("change", (event) => updateExercise(exercise.id, { rest: event.target.value.trim() }));
+
+  card.querySelector(".remove-exercise-live").addEventListener("click", () => {
+    const workout = state.program.workouts[state.selectedWorkout];
+    workout.exercises = workout.exercises.filter((item) => item.id !== exercise.id);
+    saveState();
+    renderWorkouts();
+  });
+
+  card.querySelector(".save-weight").addEventListener("click", () => {
+    const weight = Number(weightInput.value);
     if (!Number.isFinite(weight) || weight <= 0) {
-      input.focus();
+      weightInput.focus();
       return;
     }
 
@@ -311,6 +491,43 @@ function renderExerciseCard(exercise) {
   return card;
 }
 
+function renderWorkoutTools(workout) {
+  const tools = document.createElement("article");
+  tools.className = "workout-tools";
+  tools.innerHTML = `
+    <label>
+      <span>Nome giorno</span>
+      <input id="currentWorkoutTitle" type="text" value="${escapeHtml(workout.title)}" />
+    </label>
+    <div class="action-row">
+      <button class="secondary-button" id="addLiveExercise" type="button">Aggiungi esercizio</button>
+      <button class="secondary-button danger-button" id="removeLiveWorkout" type="button">Togli giorno</button>
+    </div>
+  `;
+
+  tools.querySelector("#currentWorkoutTitle").addEventListener("change", (event) => {
+    workout.title = event.target.value.trim() || `Giorno ${state.selectedWorkout + 1}`;
+    saveState();
+    renderWorkouts();
+  });
+
+  tools.querySelector("#addLiveExercise").addEventListener("click", () => {
+    workout.exercises.push(emptyExercise());
+    saveState();
+    renderWorkouts();
+  });
+
+  tools.querySelector("#removeLiveWorkout").addEventListener("click", () => {
+    if (state.program.workouts.length === 1) return;
+    state.program.workouts.splice(state.selectedWorkout, 1);
+    state.selectedWorkout = Math.max(0, state.selectedWorkout - 1);
+    saveState();
+    renderWorkouts();
+  });
+
+  return tools;
+}
+
 function renderWorkouts() {
   if (!state.program) return;
   renderProgramSummary();
@@ -319,8 +536,14 @@ function renderWorkouts() {
 
   const workout = state.program.workouts[state.selectedWorkout];
   if (!workout) {
-    els.exerciseList.innerHTML = "<p class=\"empty-state\">Nessun allenamento trovato.</p>";
+    els.exerciseList.innerHTML = '<p class="empty-state">Nessun allenamento trovato.</p>';
     return;
+  }
+
+  els.exerciseList.append(renderWorkoutTools(workout));
+
+  if (!workout.exercises.length) {
+    els.exerciseList.insertAdjacentHTML("beforeend", '<p class="empty-state">Aggiungi il primo esercizio di questo giorno.</p>');
   }
 
   workout.exercises.forEach((exercise) => {
@@ -331,11 +554,66 @@ function renderWorkouts() {
 }
 
 function startDurationStep() {
+  updatePreviewModelFromInputs();
+  if (!state.parsedWorkouts.length) {
+    state.parsedWorkouts = [emptyWorkout(0)];
+    renderPreview();
+    return;
+  }
+
   const start = todayISO();
   els.startDate.value = start;
   els.endDate.value = addDaysISO(start, 55);
   setDurationMode("dates");
   showOnly("duration");
+}
+
+function preparePreviewFromText() {
+  const parsed = parseWorkoutText(els.planText.value);
+  state.parsedWorkouts = parsed.length ? parsed : [emptyWorkout(0), emptyWorkout(1), emptyWorkout(2)];
+  renderPreview();
+  showOnly("preview");
+}
+
+function renderImagePreview(files) {
+  els.imagePreview.innerHTML = "";
+  state.selectedImages.forEach((image) => URL.revokeObjectURL(image.previewUrl));
+  state.selectedImages = [...files].map((file) => ({
+    file,
+    previewUrl: URL.createObjectURL(file),
+  }));
+
+  state.selectedImages.forEach((image) => {
+    const thumb = document.createElement("img");
+    thumb.src = image.previewUrl;
+    thumb.alt = image.file.name;
+    els.imagePreview.append(thumb);
+  });
+
+  els.imagePreview.classList.toggle("hidden", !state.selectedImages.length);
+  els.readImages.classList.toggle("hidden", !state.selectedImages.length);
+}
+
+async function readImagesWithOcr() {
+  if (!state.selectedImages.length) return;
+  if (!window.Tesseract) {
+    els.ocrStatus.textContent = "OCR non caricato. Controlla internet e ricarica la pagina.";
+    return;
+  }
+
+  els.readImages.disabled = true;
+  els.ocrStatus.textContent = "Sto leggendo le immagini...";
+  const chunks = [];
+
+  for (let index = 0; index < state.selectedImages.length; index += 1) {
+    els.ocrStatus.textContent = `Lettura immagine ${index + 1} di ${state.selectedImages.length}`;
+    const result = await window.Tesseract.recognize(state.selectedImages[index].file, "ita+eng");
+    chunks.push(result.data.text);
+  }
+
+  els.planText.value = [els.planText.value, chunks.join("\n\n")].filter(Boolean).join("\n\n");
+  els.ocrStatus.textContent = "Testo estratto. Controllalo e premi Leggi scheda.";
+  els.readImages.disabled = false;
 }
 
 els.fileInput.addEventListener("change", async (event) => {
@@ -344,15 +622,28 @@ els.fileInput.addEventListener("change", async (event) => {
   els.planText.value = await file.text();
 });
 
-els.parsePlan.addEventListener("click", () => {
-  state.parsedWorkouts = parseWorkoutText(els.planText.value);
-  if (!state.parsedWorkouts.length) {
-    els.planText.focus();
-    alert("Non ho trovato esercizi con formato tipo 4x8. Prova a incollare più testo della scheda.");
-    return;
-  }
+els.imageInput.addEventListener("change", (event) => {
+  renderImagePreview(event.target.files || []);
+});
+
+els.readImages.addEventListener("click", () => {
+  readImagesWithOcr().catch(() => {
+    els.ocrStatus.textContent = "Non sono riuscito a leggere l'immagine. Prova con una foto piu nitida.";
+    els.readImages.disabled = false;
+  });
+});
+
+els.parsePlan.addEventListener("click", preparePreviewFromText);
+els.manualPlan.addEventListener("click", () => {
+  state.parsedWorkouts = [emptyWorkout(0), emptyWorkout(1), emptyWorkout(2)];
   renderPreview();
   showOnly("preview");
+});
+
+els.addPreviewWorkout.addEventListener("click", () => {
+  updatePreviewModelFromInputs();
+  state.parsedWorkouts.push(emptyWorkout(state.parsedWorkouts.length));
+  renderPreview();
 });
 
 els.editImport.addEventListener("click", () => showOnly("import"));
@@ -364,8 +655,8 @@ els.saveProgram.addEventListener("click", () => {
   state.program = {
     createdAt: new Date().toISOString(),
     duration: buildProgramDuration(),
-    workouts: state.parsedWorkouts,
-    history: {},
+    workouts: cloneWorkouts(state.parsedWorkouts),
+    history: state.program?.history || {},
   };
   state.selectedWorkout = 0;
   saveState();
@@ -373,13 +664,15 @@ els.saveProgram.addEventListener("click", () => {
 });
 
 els.newImport.addEventListener("click", () => {
-  state.parsedWorkouts = [];
-  showOnly("import");
+  state.parsedWorkouts = cloneWorkouts(state.program?.workouts || []);
+  renderPreview();
+  showOnly("preview");
 });
 
 els.resetApp.addEventListener("click", () => {
   if (!confirm("Vuoi cancellare scheda e progressi salvati in questo browser?")) return;
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(LEGACY_KEY);
   state.program = null;
   state.parsedWorkouts = [];
   state.selectedWorkout = 0;

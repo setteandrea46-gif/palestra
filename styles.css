@@ -142,12 +142,18 @@ button:focus-visible {
   box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.22);
 }
 
+.import-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
 .file-picker {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 46px;
-  margin-bottom: 12px;
   border: 1px dashed var(--line);
   border-radius: 8px;
   background: var(--surface-2);
@@ -157,6 +163,28 @@ button:focus-visible {
 
 .file-picker input {
   display: none;
+}
+
+.image-preview {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.image-preview img {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.status-line {
+  min-height: 20px;
+  margin: 8px 0 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .primary-button,
@@ -198,6 +226,11 @@ button:focus-visible {
   padding-inline: 12px;
 }
 
+.full-button {
+  width: 100%;
+  margin-top: 12px;
+}
+
 .hidden {
   display: none !important;
 }
@@ -219,14 +252,48 @@ button:focus-visible {
   padding: 14px;
 }
 
-.preview-day ul {
-  margin: 10px 0 0;
-  padding-left: 20px;
+.preview-day-head {
+  display: grid;
+  grid-template-columns: 1fr 76px;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
 }
 
-.preview-day li {
-  margin-bottom: 8px;
-  color: var(--muted);
+.preview-exercises {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.preview-exercise {
+  display: grid;
+  grid-template-columns: 1fr 1fr 74px;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0d1115;
+}
+
+.span-2 {
+  grid-column: span 2;
+}
+
+.remove-day,
+.remove-mini {
+  min-height: 44px;
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  border-radius: 8px;
+  background: rgba(255, 107, 107, 0.12);
+  color: var(--danger);
+  font-weight: 850;
+}
+
+.remove-mini {
+  align-self: end;
+  padding: 0 8px;
+  font-size: 0.86rem;
 }
 
 .action-row {
@@ -298,6 +365,25 @@ button:focus-visible {
   color: var(--bg);
 }
 
+.add-tab {
+  border-style: dashed;
+  color: var(--accent);
+}
+
+.workout-tools {
+  display: grid;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.danger-button {
+  border-color: rgba(255, 107, 107, 0.4);
+  color: var(--danger);
+}
+
 .exercise-card {
   padding: 15px;
 }
@@ -309,11 +395,15 @@ button:focus-visible {
   margin-bottom: 12px;
 }
 
-.exercise-meta {
-  min-width: 92px;
-  text-align: right;
-  font-size: 0.92rem;
-  font-weight: 800;
+.exercise-name-field {
+  flex: 1;
+}
+
+.exercise-details-grid {
+  display: grid;
+  grid-template-columns: 0.8fr 0.8fr 1.2fr;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .weight-row {

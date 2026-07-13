@@ -20,13 +20,23 @@
       <section class="panel import-panel" id="importSection">
         <div class="section-heading">
           <h2>Importa scheda</h2>
-          <p>Incolla il testo del personal trainer o carica un file .txt.</p>
+          <p>Incolla testo, carica un .txt oppure usa foto/screenshot della scheda.</p>
         </div>
 
-        <label class="file-picker" for="fileInput">
-          <span>Carica testo</span>
-          <input id="fileInput" type="file" accept=".txt,text/plain" />
-        </label>
+        <div class="import-grid">
+          <label class="file-picker" for="fileInput">
+            <span>Testo</span>
+            <input id="fileInput" type="file" accept=".txt,text/plain" />
+          </label>
+          <label class="file-picker" for="imageInput">
+            <span>Immagini</span>
+            <input id="imageInput" type="file" accept="image/*" multiple />
+          </label>
+        </div>
+
+        <div id="imagePreview" class="image-preview hidden"></div>
+        <button class="secondary-button hidden" id="readImages" type="button">Leggi immagini</button>
+        <p class="status-line" id="ocrStatus"></p>
 
         <label class="field-label" for="planText">Testo scheda</label>
         <textarea
@@ -35,15 +45,19 @@
           placeholder="Esempio: Allenamento 1&#10;Panca piana 4x8 rec 90 sec&#10;Lat machine 3 x 12 recupero 60''"
         ></textarea>
 
-        <button class="primary-button" id="parsePlan" type="button">Leggi scheda</button>
+        <div class="action-row">
+          <button class="secondary-button" id="manualPlan" type="button">Crea manuale</button>
+          <button class="primary-button" id="parsePlan" type="button">Leggi scheda</button>
+        </div>
       </section>
 
       <section class="panel hidden" id="previewSection">
         <div class="section-heading">
           <h2>Anteprima</h2>
-          <p>Controlla gli esercizi letti prima di salvarli.</p>
+          <p>Controlla, aggiungi o togli giorni ed esercizi prima di salvare.</p>
         </div>
         <div id="previewList" class="preview-list"></div>
+        <button class="secondary-button full-button" id="addPreviewWorkout" type="button">Aggiungi giorno</button>
         <div class="action-row">
           <button class="secondary-button" id="editImport" type="button">Modifica</button>
           <button class="primary-button" id="confirmPreview" type="button">Conferma</button>
@@ -102,6 +116,7 @@
       </details>
     </template>
 
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
