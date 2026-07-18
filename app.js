@@ -36,7 +36,6 @@ const els = {
   endDate: document.querySelector("#endDate"),
   weeksCount: document.querySelector("#weeksCount"),
   saveProgram: document.querySelector("#saveProgram"),
-  workoutTabs: document.querySelector("#workoutTabs"),
   exerciseList: document.querySelector("#exerciseList"),
   programDates: document.querySelector("#programDates"),
   newImport: document.querySelector("#newImport"),
@@ -430,35 +429,6 @@ function renderProgramSummary() {
   els.programDates.textContent = `${formatDate(startDate)} - ${formatDate(endDate)}`;
 }
 
-function renderWorkoutTabs() {
-  els.workoutTabs.innerHTML = "";
-
-  state.program.workouts.forEach((workout, index) => {
-    const button = document.createElement("button");
-    button.className = `workout-tab ${index === state.selectedWorkout ? "active" : ""}`;
-    button.type = "button";
-    button.textContent = workout.title || `Allenamento ${index + 1}`;
-    button.addEventListener("click", () => {
-      state.selectedWorkout = index;
-      saveState();
-      renderWorkouts();
-    });
-    els.workoutTabs.append(button);
-  });
-
-  const addButton = document.createElement("button");
-  addButton.className = "workout-tab add-tab";
-  addButton.type = "button";
-  addButton.textContent = "+ Allenamento";
-  addButton.addEventListener("click", () => {
-    state.program.workouts.push(emptyWorkout(state.program.workouts.length));
-    state.selectedWorkout = state.program.workouts.length - 1;
-    saveState();
-    renderWorkouts();
-  });
-  els.workoutTabs.append(addButton);
-}
-
 function getExerciseHistory(exerciseId) {
   return state.program.history[exerciseId] || [];
 }
@@ -582,7 +552,7 @@ function renderExerciseCard(exercise) {
   return card;
 }
 
-function renderWorkoutTools(workout) {
+function renderWorkoutTools(workout, workoutIndex) {
   const tools = document.createElement("article");
   tools.className = "workout-tools";
   tools.innerHTML = `
@@ -597,7 +567,7 @@ function renderWorkoutTools(workout) {
   `;
 
   tools.querySelector("#currentWorkoutTitle").addEventListener("change", (event) => {
-    workout.title = event.target.value.trim() || `Allenamento ${state.selectedWorkout + 1}`;
+    workout.title = event.target.value.trim() || `Allenamento ${workoutIndex + 1}`;
     saveState();
     renderWorkouts();
   });
@@ -610,7 +580,7 @@ function renderWorkoutTools(workout) {
 
   tools.querySelector("#removeLiveWorkout").addEventListener("click", () => {
     if (state.program.workouts.length === 1) return;
-    state.program.workouts.splice(state.selectedWorkout, 1);
+    state.program.workouts.splice(workoutIndex, 1);
     state.selectedWorkout = Math.max(0, state.selectedWorkout - 1);
     saveState();
     renderWorkouts();
@@ -619,27 +589,73 @@ function renderWorkoutTools(workout) {
   return tools;
 }
 
-function renderWorkouts() {
-  if (!state.program) return;
-  renderProgramSummary();
-  renderWorkoutTabs();
-  els.exerciseList.innerHTML = "";
+function renderWorkoutBox(workout, workoutIndex) {
+  const isOpen = workoutIndex === state.selectedWorkout;
+  const box = document.createElement("article");
+  box.className = `workout-box ${isOpen ? "active" : ""}`;
 
-  const workout = state.program.workouts[state.selectedWorkout];
-  if (!workout) {
-    els.exerciseList.innerHTML = '<p class="empty-state">Nessun allenamento trovato.</p>';
-    return;
-  }
+  const header = document.createElement("button");
+  header.className = "workout-box-header";
+  header.type = "button";
+  header.innerHTML = `
+    <span>${escapeHtml(workout.title || `Allenamento ${workoutIndex + 1}`)}</span>
+    <small>${workout.exercises.length || 0} esercizi</small>
+  `;
+  header.addEventListener("click", () => {
+    state.selectedWorkout = workoutIndex;
+    saveState();
+    renderWorkouts();
+  });
+  box.append(header);
 
-  els.exerciseList.append(renderWorkoutTools(workout));
+  if (!isOpen) return box;
+
+  const content = document.createElement("div");
+  content.className = "workout-box-content";
+  content.append(renderWorkoutTools(workout, workoutIndex));
 
   if (!workout.exercises.length) {
-    els.exerciseList.insertAdjacentHTML("beforeend", '<p class="empty-state">Aggiungi il primo esercizio di questo allenamento.</p>');
+    content.insertAdjacentHTML("beforeend", '<p class="empty-state">Aggiungi il primo esercizio di questo allenamento.</p>');
   }
 
   workout.exercises.forEach((exercise) => {
-    els.exerciseList.append(renderExerciseCard(exercise));
+    content.append(renderExerciseCard(exercise));
   });
+
+  box.append(content);
+  return box;
+}
+
+function renderAddWorkoutButton() {
+  const button = document.createElement("button");
+  button.className = "secondary-button full-button add-workout-box";
+  button.type = "button";
+  button.textContent = "Aggiungi allenamento";
+  button.addEventListener("click", () => {
+    state.program.workouts.push(emptyWorkout(state.program.workouts.length));
+    state.selectedWorkout = state.program.workouts.length - 1;
+    saveState();
+    renderWorkouts();
+  });
+  return button;
+}
+
+function renderWorkouts() {
+  if (!state.program) return;
+  renderProgramSummary();
+  els.exerciseList.innerHTML = "";
+
+  if (!state.program.workouts.length) {
+    state.program.workouts = ensureThreeWorkouts([]);
+  }
+
+  state.selectedWorkout = Math.min(state.selectedWorkout, Math.max(0, state.program.workouts.length - 1));
+
+  state.program.workouts.forEach((workout, workoutIndex) => {
+    els.exerciseList.append(renderWorkoutBox(workout, workoutIndex));
+  });
+
+  els.exerciseList.append(renderAddWorkoutButton());
 
   showOnly("workouts");
 }

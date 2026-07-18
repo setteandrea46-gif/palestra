@@ -388,38 +388,49 @@ button:focus-visible {
   font-size: 0.98rem;
 }
 
-.workout-tabs {
-  display: flex;
-  gap: 8px;
-  margin: 0 -14px 14px;
-  padding: 0 14px 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.workout-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.workout-tab {
-  flex: 0 0 auto;
-  min-width: 112px;
-  min-height: 48px;
+.workout-box {
   border: 1px solid var(--line);
   border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.workout-box.active {
+  border-color: rgba(32, 201, 151, 0.65);
+}
+
+.workout-box-header {
+  display: flex;
+  width: 100%;
+  min-height: 62px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
   background: var(--surface-2);
   color: var(--text);
-  font-weight: 850;
+  padding: 0 14px;
+  text-align: left;
 }
 
-.workout-tab.active {
-  background: var(--text);
-  color: var(--bg);
+.workout-box.active .workout-box-header {
+  background: rgba(32, 201, 151, 0.14);
 }
 
-.add-tab {
-  border-style: dashed;
-  color: var(--accent);
+.workout-box-header span {
+  font-size: 1.08rem;
+  font-weight: 900;
+}
+
+.workout-box-header small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.workout-box-content {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
 }
 
 .workout-tools {
