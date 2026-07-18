@@ -9,13 +9,57 @@
   </head>
   <body>
     <main class="app-shell">
+      <section class="panel login-panel" id="loginSection">
+        <div class="section-heading">
+          <h2>Accedi al tuo spazio</h2>
+          <p>Inserisci il tuo nome la prima volta. Da questo telefono la scheda resta salvata nel tuo profilo.</p>
+        </div>
+        <label>
+          <span>Nome profilo</span>
+          <input id="profileName" type="text" autocomplete="username" placeholder="Andrea" />
+        </label>
+        <label>
+          <span>PIN opzionale</span>
+          <input id="profilePin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Solo se vuoi proteggerlo" />
+        </label>
+        <button class="primary-button" id="loginButton" type="button">Entra</button>
+        <p class="status-line" id="loginStatus"></p>
+      </section>
+
       <header class="topbar">
         <div>
           <p class="eyebrow">Scheda palestra</p>
           <h1>Allenamenti</h1>
+          <p class="profile-line" id="activeProfile"></p>
         </div>
-        <button class="icon-button" id="resetApp" type="button" aria-label="Cancella dati">Reset</button>
+        <div class="top-actions">
+          <button class="icon-button" id="logoutApp" type="button">Esci</button>
+          <button class="icon-button" id="resetApp" type="button" aria-label="Cancella dati">Reset</button>
+        </div>
       </header>
+
+      <nav class="feature-nav" id="featureNav" aria-label="Sezioni app">
+        <button class="feature-card active" data-view="workouts" type="button">
+          <span>A</span>
+          Allenamenti
+        </button>
+        <button class="feature-card" data-view="diet" type="button">
+          <span>D</span>
+          Dieta
+        </button>
+        <button class="feature-card" data-view="improvements" type="button">
+          <span>M</span>
+          Miglioramenti
+        </button>
+        <button class="feature-card" data-view="stats" type="button">
+          <span>S</span>
+          Statistiche
+        </button>
+        <button class="feature-card" data-view="photos" type="button">
+          <span>F</span>
+          Foto
+        </button>
+      </nav>
 
       <section class="panel import-panel" id="importSection">
         <div class="section-heading">
@@ -104,6 +148,51 @@
         </div>
 
         <div id="exerciseList" class="exercise-list"></div>
+      </section>
+
+      <section class="panel hidden" id="dietSection">
+        <div class="section-heading">
+          <h2>Dieta</h2>
+          <p>Appunti veloci su pasti, acqua, calorie o indicazioni del nutrizionista.</p>
+        </div>
+        <label>
+          <span>Obiettivo dieta</span>
+          <input id="dietGoal" type="text" placeholder="Definizione, massa, mantenimento..." />
+        </label>
+        <label>
+          <span>Note alimentari</span>
+          <textarea id="dietNotes" rows="9" placeholder="Colazione, pranzo, cena, integrazione..."></textarea>
+        </label>
+        <button class="primary-button" id="saveDiet" type="button">Salva dieta</button>
+      </section>
+
+      <section class="panel hidden" id="improvementsSection">
+        <div class="section-heading">
+          <h2>Miglioramenti</h2>
+          <p>Si aggiorna quando salvi carichi più alti negli esercizi.</p>
+        </div>
+        <div class="metric-grid" id="improvementsList"></div>
+      </section>
+
+      <section class="panel hidden" id="statsSection">
+        <div class="section-heading">
+          <h2>Statistiche</h2>
+          <p>Riepilogo automatico dei tuoi allenamenti salvati.</p>
+        </div>
+        <div class="metric-grid" id="statsList"></div>
+      </section>
+
+      <section class="panel hidden" id="photosSection">
+        <div class="section-heading">
+          <h2>Foto progressi</h2>
+          <p>Carica foto nel tempo per confrontare i cambiamenti.</p>
+        </div>
+        <label class="photo-picker" for="progressPhotoInput">
+          <span>Aggiungi foto progresso</span>
+          <small>Galleria o fotocamera</small>
+          <input id="progressPhotoInput" type="file" accept="image/*" multiple />
+        </label>
+        <div class="progress-photo-grid" id="progressPhotoGrid"></div>
       </section>
     </main>
 

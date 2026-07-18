@@ -1,21 +1,39 @@
 const STORAGE_KEY = "gym-tracker-v2";
 const LEGACY_KEY = "gym-tracker-v1";
 const DRAFT_KEY = "gym-tracker-draft-v1";
+const ACTIVE_PROFILE_KEY = "gym-tracker-active-profile-v1";
+const PROFILES_KEY = "gym-tracker-profiles-v1";
 
 const state = {
+  activeProfile: null,
+  activeView: "workouts",
   parsedWorkouts: [],
   program: null,
   selectedWorkout: 0,
   selectedPreviewWorkout: 0,
   selectedImages: [],
+  diet: { goal: "", notes: "" },
+  progressPhotos: [],
 };
 
 const els = {
+  loginSection: document.querySelector("#loginSection"),
+  profileName: document.querySelector("#profileName"),
+  profilePin: document.querySelector("#profilePin"),
+  loginButton: document.querySelector("#loginButton"),
+  loginStatus: document.querySelector("#loginStatus"),
+  activeProfile: document.querySelector("#activeProfile"),
+  logoutApp: document.querySelector("#logoutApp"),
+  featureNav: document.querySelector("#featureNav"),
   resetApp: document.querySelector("#resetApp"),
   importSection: document.querySelector("#importSection"),
   previewSection: document.querySelector("#previewSection"),
   durationSection: document.querySelector("#durationSection"),
   workoutSection: document.querySelector("#workoutSection"),
+  dietSection: document.querySelector("#dietSection"),
+  improvementsSection: document.querySelector("#improvementsSection"),
+  statsSection: document.querySelector("#statsSection"),
+  photosSection: document.querySelector("#photosSection"),
   planText: document.querySelector("#planText"),
   fileInput: document.querySelector("#fileInput"),
   imageInput: document.querySelector("#imageInput"),
@@ -40,10 +58,91 @@ const els = {
   programDates: document.querySelector("#programDates"),
   newImport: document.querySelector("#newImport"),
   historyTemplate: document.querySelector("#historyTemplate"),
+  dietGoal: document.querySelector("#dietGoal"),
+  dietNotes: document.querySelector("#dietNotes"),
+  saveDiet: document.querySelector("#saveDiet"),
+  improvementsList: document.querySelector("#improvementsList"),
+  statsList: document.querySelector("#statsList"),
+  progressPhotoInput: document.querySelector("#progressPhotoInput"),
+  progressPhotoGrid: document.querySelector("#progressPhotoGrid"),
 };
 
 function uid(prefix = "id") {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function profileIdFromName(name) {
+  return normalizeExerciseName(name.trim()) || "utente";
+}
+
+function profileKey(baseKey) {
+  return state.activeProfile ? `${baseKey}-${state.activeProfile.id}` : baseKey;
+}
+
+function readProfiles() {
+  try {
+    return JSON.parse(localStorage.getItem(PROFILES_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function writeProfiles(profiles) {
+  localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+}
+
+function setLoggedLayout(isLogged) {
+  document.body.classList.toggle("auth-locked", !isLogged);
+  els.loginSection.classList.toggle("hidden", isLogged);
+  els.featureNav.classList.toggle("hidden", !isLogged);
+  document.querySelector(".topbar").classList.toggle("hidden", !isLogged);
+}
+
+function loginProfile() {
+  const name = els.profileName.value.trim();
+  const pin = els.profilePin.value.trim();
+
+  if (!name) {
+    els.loginStatus.textContent = "Inserisci un nome profilo.";
+    els.profileName.focus();
+    return;
+  }
+
+  const id = profileIdFromName(name);
+  const profiles = readProfiles();
+  const existing = profiles[id];
+
+  if (existing?.pin && existing.pin !== pin) {
+    els.loginStatus.textContent = "PIN non corretto per questo profilo.";
+    els.profilePin.focus();
+    return;
+  }
+
+  profiles[id] = {
+    id,
+    name: existing?.name || name,
+    pin: existing?.pin || pin,
+    updatedAt: new Date().toISOString(),
+  };
+  writeProfiles(profiles);
+
+  state.activeProfile = profiles[id];
+  localStorage.setItem(ACTIVE_PROFILE_KEY, id);
+  els.loginStatus.textContent = "";
+  hydrateProfileState();
+  renderApp();
+}
+
+function logoutProfile() {
+  localStorage.removeItem(ACTIVE_PROFILE_KEY);
+  state.activeProfile = null;
+  state.program = null;
+  state.parsedWorkouts = [];
+  state.selectedWorkout = 0;
+  state.selectedPreviewWorkout = 0;
+  state.diet = { goal: "", notes: "" };
+  state.progressPhotos = [];
+  setLoggedLayout(false);
 }
 
 function todayISO() {
@@ -119,17 +218,20 @@ function cloneWorkouts(workouts) {
 
 function saveState() {
   localStorage.setItem(
-    STORAGE_KEY,
+    profileKey(STORAGE_KEY),
     JSON.stringify({
       program: state.program,
       selectedWorkout: state.selectedWorkout,
+      diet: state.diet,
+      progressPhotos: state.progressPhotos,
+      activeView: state.activeView,
     }),
   );
 }
 
 function saveDraft() {
   localStorage.setItem(
-    DRAFT_KEY,
+    profileKey(DRAFT_KEY),
     JSON.stringify({
       parsedWorkouts: state.parsedWorkouts,
       selectedPreviewWorkout: state.selectedPreviewWorkout,
@@ -138,16 +240,27 @@ function saveDraft() {
 }
 
 function clearDraft() {
-  localStorage.removeItem(DRAFT_KEY);
+  localStorage.removeItem(profileKey(DRAFT_KEY));
 }
 
-function loadState() {
-  const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
+function hydrateProfileState() {
+  state.program = null;
+  state.parsedWorkouts = [];
+  state.selectedWorkout = 0;
+  state.selectedPreviewWorkout = 0;
+  state.diet = { goal: "", notes: "" };
+  state.progressPhotos = [];
+  state.activeView = "workouts";
+
+  const raw = localStorage.getItem(profileKey(STORAGE_KEY)) || localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
   if (raw) {
     try {
       const saved = JSON.parse(raw);
       state.program = saved.program;
       state.selectedWorkout = saved.selectedWorkout || 0;
+      state.activeView = saved.activeView || "workouts";
+      state.diet = saved.diet || { goal: "", notes: "" };
+      state.progressPhotos = saved.progressPhotos || [];
       if (state.program?.workouts) {
         state.program.workouts = cloneWorkouts(state.program.workouts);
         state.program.history = state.program.history || {};
@@ -158,7 +271,7 @@ function loadState() {
     }
   }
 
-  const draftRaw = localStorage.getItem(DRAFT_KEY);
+  const draftRaw = localStorage.getItem(profileKey(DRAFT_KEY));
   if (!state.program && draftRaw) {
     try {
       const draft = JSON.parse(draftRaw);
@@ -168,6 +281,19 @@ function loadState() {
       clearDraft();
     }
   }
+}
+
+function loadActiveProfile() {
+  const activeId = localStorage.getItem(ACTIVE_PROFILE_KEY);
+  const profiles = readProfiles();
+  if (!activeId || !profiles[activeId]) {
+    setLoggedLayout(false);
+    return;
+  }
+
+  state.activeProfile = profiles[activeId];
+  hydrateProfileState();
+  renderApp();
 }
 
 function isWorkoutHeading(line) {
@@ -275,12 +401,72 @@ function parseWorkoutText(text) {
 }
 
 function showOnly(section) {
-  [els.importSection, els.previewSection, els.durationSection].forEach((el) => el.classList.add("hidden"));
+  [
+    els.importSection,
+    els.previewSection,
+    els.durationSection,
+    els.dietSection,
+    els.improvementsSection,
+    els.statsSection,
+    els.photosSection,
+  ].forEach((el) => el.classList.add("hidden"));
   els.workoutSection.classList.toggle("hidden", section !== "workouts");
 
   if (section === "import") els.importSection.classList.remove("hidden");
   if (section === "preview") els.previewSection.classList.remove("hidden");
   if (section === "duration") els.durationSection.classList.remove("hidden");
+  if (section === "diet") els.dietSection.classList.remove("hidden");
+  if (section === "improvements") els.improvementsSection.classList.remove("hidden");
+  if (section === "stats") els.statsSection.classList.remove("hidden");
+  if (section === "photos") els.photosSection.classList.remove("hidden");
+}
+
+function setActiveView(view) {
+  state.activeView = view;
+  els.featureNav.querySelectorAll(".feature-card").forEach((button) => {
+    button.classList.toggle("active", button.dataset.view === view);
+  });
+
+  if (view === "workouts") {
+    if (state.program) {
+      renderWorkouts();
+    } else if (state.parsedWorkouts.length) {
+      renderPreview();
+      showOnly("preview");
+    } else {
+      showOnly("import");
+    }
+  }
+
+  if (view === "diet") {
+    renderDiet();
+    showOnly("diet");
+  }
+
+  if (view === "improvements") {
+    renderImprovements();
+    showOnly("improvements");
+  }
+
+  if (view === "stats") {
+    renderStats();
+    showOnly("stats");
+  }
+
+  if (view === "photos") {
+    renderProgressPhotos();
+    showOnly("photos");
+  }
+
+  saveState();
+}
+
+function renderApp() {
+  setLoggedLayout(true);
+  els.activeProfile.textContent = `Profilo: ${state.activeProfile.name}`;
+  els.dietGoal.value = state.diet.goal || "";
+  els.dietNotes.value = state.diet.notes || "";
+  setActiveView(state.activeView || "workouts");
 }
 
 function updatePreviewModelFromInputs() {
@@ -469,6 +655,129 @@ function renderHistory(exercise) {
     });
 
   return historyNode;
+}
+
+function allExercises() {
+  return state.program?.workouts?.flatMap((workout) => workout.exercises || []) || [];
+}
+
+function historyEntries() {
+  return Object.entries(state.program?.history || {}).flatMap(([exerciseId, entries]) =>
+    entries.map((entry) => ({ exerciseId, ...entry })),
+  );
+}
+
+function exerciseNameById(exerciseId) {
+  return allExercises().find((exercise) => exercise.id === exerciseId)?.name || "Esercizio";
+}
+
+function improvementRows() {
+  return Object.entries(state.program?.history || {})
+    .map(([exerciseId, entries]) => {
+      if (!entries.length) return null;
+      const weights = entries.map((entry) => Number(entry.weight)).filter(Number.isFinite);
+      const first = weights[0] || 0;
+      const best = Math.max(...weights, 0);
+      const latest = weights.at(-1) || 0;
+      return {
+        exerciseId,
+        name: exerciseNameById(exerciseId),
+        first,
+        best,
+        latest,
+        gain: Number((best - first).toFixed(2)),
+        sessions: entries.length,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.gain - a.gain);
+}
+
+function metricCard(label, value, detail = "") {
+  const card = document.createElement("article");
+  card.className = "metric-card";
+  card.innerHTML = `
+    <span>${label}</span>
+    <strong>${value}</strong>
+    <small>${detail}</small>
+  `;
+  return card;
+}
+
+function renderDiet() {
+  els.dietGoal.value = state.diet.goal || "";
+  els.dietNotes.value = state.diet.notes || "";
+}
+
+function renderImprovements() {
+  els.improvementsList.innerHTML = "";
+  const rows = improvementRows();
+
+  if (!rows.length) {
+    els.improvementsList.append(metricCard("Miglioramenti", "0 kg", "Salva almeno due carichi per vedere l'aumento."));
+    return;
+  }
+
+  rows.slice(0, 8).forEach((row) => {
+    els.improvementsList.append(
+      metricCard(row.name, `+${row.gain} kg`, `Massimo ${row.best} kg · ultimo ${row.latest} kg · ${row.sessions} sessioni`),
+    );
+  });
+}
+
+function renderStats() {
+  els.statsList.innerHTML = "";
+  const entries = historyEntries();
+  const exercises = allExercises();
+  const rows = improvementRows();
+  const totalGain = rows.reduce((sum, row) => sum + Math.max(0, row.gain), 0);
+  const best = rows[0];
+  const lastDate = entries
+    .map((entry) => entry.date)
+    .sort()
+    .at(-1);
+
+  els.statsList.append(metricCard("Esercizi", exercises.length, "nella scheda salvata"));
+  els.statsList.append(metricCard("Carichi salvati", entries.length, "sessioni registrate"));
+  els.statsList.append(metricCard("Incremento totale", `+${Number(totalGain.toFixed(1))} kg`, "somma dei migliori aumenti"));
+  els.statsList.append(metricCard("Migliore esercizio", best ? best.name : "-", best ? `+${best.gain} kg` : "Aggiungi carichi"));
+  els.statsList.append(metricCard("Ultimo allenamento", lastDate ? formatDate(lastDate) : "-", "ultima data registrata"));
+}
+
+function renderProgressPhotos() {
+  els.progressPhotoGrid.innerHTML = "";
+
+  if (!state.progressPhotos.length) {
+    els.progressPhotoGrid.innerHTML = '<p class="empty-state">Aggiungi la prima foto per iniziare il confronto.</p>';
+    return;
+  }
+
+  state.progressPhotos.forEach((photo) => {
+    const card = document.createElement("article");
+    card.className = "progress-photo-card";
+    card.innerHTML = `
+      <img src="${photo.dataUrl}" alt="Foto progresso" />
+      <div>
+        <strong>${formatDate(photo.date)}</strong>
+        <button class="remove-mini" type="button">Togli</button>
+      </div>
+    `;
+    card.querySelector("button").addEventListener("click", () => {
+      state.progressPhotos = state.progressPhotos.filter((item) => item.id !== photo.id);
+      saveState();
+      renderProgressPhotos();
+    });
+    els.progressPhotoGrid.append(card);
+  });
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(reader.result));
+    reader.addEventListener("error", reject);
+    reader.readAsDataURL(file);
+  });
 }
 
 function updateExercise(exerciseId, patch) {
@@ -753,6 +1062,48 @@ els.readImages.addEventListener("click", () => {
   });
 });
 
+els.loginButton.addEventListener("click", loginProfile);
+els.profileName.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") loginProfile();
+});
+els.profilePin.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") loginProfile();
+});
+
+els.logoutApp.addEventListener("click", logoutProfile);
+
+els.featureNav.addEventListener("click", (event) => {
+  const button = event.target.closest(".feature-card");
+  if (!button) return;
+  setActiveView(button.dataset.view);
+});
+
+els.saveDiet.addEventListener("click", () => {
+  state.diet = {
+    goal: els.dietGoal.value.trim(),
+    notes: els.dietNotes.value.trim(),
+  };
+  saveState();
+});
+
+els.progressPhotoInput.addEventListener("change", async (event) => {
+  const files = [...(event.target.files || [])];
+  if (!files.length) return;
+
+  for (const file of files) {
+    const dataUrl = await fileToDataUrl(file);
+    state.progressPhotos.unshift({
+      id: uid("photo"),
+      date: todayISO(),
+      dataUrl,
+    });
+  }
+
+  event.target.value = "";
+  saveState();
+  renderProgressPhotos();
+});
+
 els.parsePlan.addEventListener("click", preparePreviewFromText);
 els.manualPlan.addEventListener("click", () => {
   state.parsedWorkouts = [emptyWorkout(0), emptyWorkout(1), emptyWorkout(2)];
@@ -793,23 +1144,18 @@ els.newImport.addEventListener("click", () => {
 });
 
 els.resetApp.addEventListener("click", () => {
-  if (!confirm("Vuoi cancellare scheda e progressi salvati in questo browser?")) return;
-  localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(LEGACY_KEY);
+  if (!confirm("Vuoi cancellare scheda e progressi salvati in questo profilo?")) return;
+  localStorage.removeItem(profileKey(STORAGE_KEY));
+  localStorage.removeItem(profileKey(DRAFT_KEY));
   clearDraft();
   state.program = null;
   state.parsedWorkouts = [];
   state.selectedWorkout = 0;
+  state.diet = { goal: "", notes: "" };
+  state.progressPhotos = [];
   els.planText.value = "";
-  showOnly("import");
+  state.activeView = "workouts";
+  setActiveView("workouts");
 });
 
-loadState();
-if (state.program) {
-  renderWorkouts();
-} else if (state.parsedWorkouts.length) {
-  renderPreview();
-  showOnly("preview");
-} else {
-  showOnly("import");
-}
+loadActiveProfile();
