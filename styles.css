@@ -282,10 +282,23 @@ button:focus-visible {
 
 .preview-day-head {
   display: grid;
-  grid-template-columns: 1fr 76px;
+  grid-template-columns: 1fr 74px 74px;
   gap: 10px;
   align-items: end;
   margin-bottom: 12px;
+}
+
+.preview-day.collapsed {
+  background: var(--surface-2);
+}
+
+.preview-day.collapsed .preview-day-head {
+  margin-bottom: 8px;
+}
+
+.preview-summary {
+  color: var(--muted);
+  font-weight: 800;
 }
 
 .preview-exercises {
@@ -308,14 +321,25 @@ button:focus-visible {
   grid-column: span 2;
 }
 
+.open-day,
 .remove-day,
 .remove-mini {
   min-height: 44px;
-  border: 1px solid rgba(255, 107, 107, 0.4);
   border-radius: 8px;
+  font-weight: 850;
+}
+
+.open-day {
+  border: 1px solid rgba(32, 201, 151, 0.45);
+  background: rgba(32, 201, 151, 0.12);
+  color: var(--accent);
+}
+
+.remove-day,
+.remove-mini {
+  border: 1px solid rgba(255, 107, 107, 0.4);
   background: rgba(255, 107, 107, 0.12);
   color: var(--danger);
-  font-weight: 850;
 }
 
 .remove-mini {

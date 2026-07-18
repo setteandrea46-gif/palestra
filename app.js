@@ -1,10 +1,12 @@
 const STORAGE_KEY = "gym-tracker-v2";
 const LEGACY_KEY = "gym-tracker-v1";
+const DRAFT_KEY = "gym-tracker-draft-v1";
 
 const state = {
   parsedWorkouts: [],
   program: null,
   selectedWorkout: 0,
+  selectedPreviewWorkout: 0,
   selectedImages: [],
 };
 
@@ -117,22 +119,55 @@ function cloneWorkouts(workouts) {
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ program: state.program }));
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      program: state.program,
+      selectedWorkout: state.selectedWorkout,
+    }),
+  );
+}
+
+function saveDraft() {
+  localStorage.setItem(
+    DRAFT_KEY,
+    JSON.stringify({
+      parsedWorkouts: state.parsedWorkouts,
+      selectedPreviewWorkout: state.selectedPreviewWorkout,
+    }),
+  );
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY);
 }
 
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
-  if (!raw) return;
-
-  try {
-    const saved = JSON.parse(raw);
-    state.program = saved.program;
-    if (state.program?.workouts) {
-      state.program.workouts = cloneWorkouts(state.program.workouts);
-      state.program.history = state.program.history || {};
+  if (raw) {
+    try {
+      const saved = JSON.parse(raw);
+      state.program = saved.program;
+      state.selectedWorkout = saved.selectedWorkout || 0;
+      if (state.program?.workouts) {
+        state.program.workouts = cloneWorkouts(state.program.workouts);
+        state.program.history = state.program.history || {};
+        state.selectedWorkout = Math.min(state.selectedWorkout, Math.max(0, state.program.workouts.length - 1));
+      }
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
     }
-  } catch {
-    localStorage.removeItem(STORAGE_KEY);
+  }
+
+  const draftRaw = localStorage.getItem(DRAFT_KEY);
+  if (!state.program && draftRaw) {
+    try {
+      const draft = JSON.parse(draftRaw);
+      state.parsedWorkouts = cloneWorkouts(draft.parsedWorkouts || []);
+      state.selectedPreviewWorkout = draft.selectedPreviewWorkout || 0;
+    } catch {
+      clearDraft();
+    }
   }
 }
 
@@ -266,6 +301,7 @@ function updatePreviewModelFromInputs() {
       exercises: exercises.filter((exercise) => exercise.name || exercise.sets || exercise.reps || exercise.rest),
     };
   });
+  saveDraft();
 }
 
 function makePreviewExerciseRow(exercise = emptyExercise()) {
@@ -303,10 +339,12 @@ function makePreviewExerciseRow(exercise = emptyExercise()) {
 
 function renderPreview() {
   els.previewList.innerHTML = "";
+  state.selectedPreviewWorkout = Math.min(state.selectedPreviewWorkout, Math.max(0, state.parsedWorkouts.length - 1));
 
   state.parsedWorkouts.forEach((workout, workoutIndex) => {
+    const isOpen = workoutIndex === state.selectedPreviewWorkout;
     const card = document.createElement("article");
-    card.className = "preview-day";
+    card.className = `preview-day ${isOpen ? "active" : "collapsed"}`;
     card.dataset.workoutId = workout.id || uid("workout");
     card.innerHTML = `
       <div class="preview-day-head">
@@ -314,9 +352,11 @@ function renderPreview() {
           <span>Nome allenamento</span>
           <input data-field="title" type="text" value="${escapeHtml(workout.title || `Allenamento ${workoutIndex + 1}`)}" />
         </label>
+        <button class="open-day" type="button">${isOpen ? "Aperto" : "Apri"}</button>
         <button class="remove-day" type="button">Togli</button>
       </div>
-      <div class="preview-exercises"></div>
+      <div class="preview-summary">${workout.exercises.length || 0} esercizi</div>
+      <div class="preview-exercises ${isOpen ? "" : "hidden"}"></div>
       <button class="secondary-button compact add-exercise" type="button">Aggiungi esercizio</button>
     `;
 
@@ -326,17 +366,33 @@ function renderPreview() {
     });
 
     card.querySelector("[data-field='title']").addEventListener("input", updatePreviewModelFromInputs);
+    card.querySelector(".open-day").addEventListener("click", () => {
+      updatePreviewModelFromInputs();
+      state.selectedPreviewWorkout = workoutIndex;
+      saveDraft();
+      renderPreview();
+    });
     card.querySelector(".remove-day").addEventListener("click", () => {
       card.remove();
       updatePreviewModelFromInputs();
+      state.selectedPreviewWorkout = Math.max(0, Math.min(state.selectedPreviewWorkout, state.parsedWorkouts.length - 1));
+      saveDraft();
+      renderPreview();
     });
     card.querySelector(".add-exercise").addEventListener("click", () => {
+      state.selectedPreviewWorkout = workoutIndex;
       list.append(makePreviewExerciseRow());
       updatePreviewModelFromInputs();
+      renderPreview();
     });
+
+    if (!isOpen) {
+      card.querySelector(".add-exercise").classList.add("hidden");
+    }
 
     els.previewList.append(card);
   });
+  saveDraft();
 }
 
 function setDurationMode(mode) {
@@ -384,6 +440,7 @@ function renderWorkoutTabs() {
     button.textContent = workout.title || `Allenamento ${index + 1}`;
     button.addEventListener("click", () => {
       state.selectedWorkout = index;
+      saveState();
       renderWorkouts();
     });
     els.workoutTabs.append(button);
@@ -605,6 +662,8 @@ function startDurationStep() {
 function preparePreviewFromText() {
   const parsed = parseWorkoutText(els.planText.value);
   state.parsedWorkouts = ensureThreeWorkouts(parsed);
+  state.selectedPreviewWorkout = 0;
+  saveDraft();
   renderPreview();
   showOnly("preview");
 }
@@ -705,11 +764,14 @@ els.saveProgram.addEventListener("click", () => {
   };
   state.selectedWorkout = 0;
   saveState();
+  clearDraft();
   renderWorkouts();
 });
 
 els.newImport.addEventListener("click", () => {
   state.parsedWorkouts = cloneWorkouts(state.program?.workouts || []);
+  state.selectedPreviewWorkout = 0;
+  saveDraft();
   renderPreview();
   showOnly("preview");
 });
@@ -718,6 +780,7 @@ els.resetApp.addEventListener("click", () => {
   if (!confirm("Vuoi cancellare scheda e progressi salvati in questo browser?")) return;
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(LEGACY_KEY);
+  clearDraft();
   state.program = null;
   state.parsedWorkouts = [];
   state.selectedWorkout = 0;
@@ -728,6 +791,9 @@ els.resetApp.addEventListener("click", () => {
 loadState();
 if (state.program) {
   renderWorkouts();
+} else if (state.parsedWorkouts.length) {
+  renderPreview();
+  showOnly("preview");
 } else {
   showOnly("import");
 }
