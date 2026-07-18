@@ -351,13 +351,33 @@ function loadActiveProfile() {
   renderApp();
 }
 
+function normalizeWorkoutWord(value) {
+  return String(value || "")
+    .replace(/[0οΟ]/g, "o")
+    .replace(/w[o0]\s*r\s*k\s*[o0]\s*u\s*t/gi, "workout")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function workoutHeadingMatch(line) {
+  const cleaned = normalizeWorkoutWord(line);
+  return cleaned.match(/\b(allenamento|workout|work out|giorno|day|sessione)\s*[:#-]?\s*([a-c]|\d+|uno|due|tre|quattro|cinque)?\b/i);
+}
+
 function isWorkoutHeading(line) {
-  const cleaned = line.trim().toLowerCase();
-  return /\b(allenamento|workout|giorno|day|sessione)\s*[:#-]?\s*([a-z]|\d+|uno|due|tre|quattro|cinque)?\b/.test(cleaned);
+  return Boolean(workoutHeadingMatch(line));
+}
+
+function workoutNumberFrom(line) {
+  const match = workoutHeadingMatch(line);
+  const rawSuffix = match?.[2]?.toLowerCase();
+  const words = { uno: 1, due: 2, tre: 3, quattro: 4, cinque: 5, a: 1, b: 2, c: 3 };
+  const number = words[rawSuffix] || Number(rawSuffix);
+  return Number.isFinite(number) && number > 0 ? number : null;
 }
 
 function workoutTitleFrom(line, index) {
-  const match = line.trim().match(/(allenamento|workout|giorno|day|sessione|scheda)\s*[:#-]?\s*([a-z]|\d+|uno|due|tre|quattro|cinque)?/i);
+  const match = workoutHeadingMatch(line);
   const rawSuffix = match?.[2]?.toLowerCase();
   const words = { uno: "1", due: "2", tre: "3", quattro: "4", cinque: "5" };
   const suffix = words[rawSuffix] || rawSuffix?.toUpperCase() || `${index + 1}`;
@@ -373,6 +393,18 @@ function ensureThreeWorkouts(workouts) {
   return next.map((workout, index) => ({
     ...workout,
     title: workout.title?.trim() || `Allenamento ${index + 1}`,
+  }));
+}
+
+function splitSingleWorkoutIntoThree(workouts) {
+  if (workouts.length !== 1 || workouts[0].exercises.length < 9) return workouts;
+
+  const exercises = workouts[0].exercises;
+  const chunkSize = Math.ceil(exercises.length / 3);
+  return [0, 1, 2].map((index) => ({
+    id: index === 0 ? workouts[0].id : uid("workout"),
+    title: `Allenamento ${index + 1}`,
+    exercises: exercises.slice(index * chunkSize, (index + 1) * chunkSize),
   }));
 }
 
@@ -423,7 +455,8 @@ function parseExerciseLine(line) {
 function normalizeOcrText(text) {
   return text
     .replace(/\r/g, "\n")
-    .replace(/\b(WORKOUT|Allenamento|Giorno|Day)\s*([1-9A-C])\b/gi, "\n$1 $2\n")
+    .replace(/[|]/g, "\n")
+    .replace(/\b(W\s*[O0]\s*R\s*K\s*[O0]\s*U\s*T|WORK\s*OUT|W[O0]RK[O0]UT|Allenamento|Giorno|Day)\s*[:#-]?\s*([1-9A-C])\b/gi, "\nWORKOUT $2\n")
     .replace(/\b(SET|RPT|REP|REC|Esercizio)\b/gi, "\n$1 ")
     .replace(/\n{2,}/g, "\n");
 }
@@ -439,12 +472,14 @@ function parseWorkoutText(text) {
 
   lines.forEach((line) => {
     if (isWorkoutHeading(line)) {
+      const headingNumber = workoutNumberFrom(line);
+      const targetIndex = headingNumber ? headingNumber - 1 : workouts.length;
       current = {
-        id: uid("workout"),
-        title: workoutTitleFrom(line, workouts.length),
-        exercises: [],
+        id: workouts[targetIndex]?.id || uid("workout"),
+        title: workoutTitleFrom(line, targetIndex),
+        exercises: workouts[targetIndex]?.exercises || [],
       };
-      workouts.push(current);
+      workouts[targetIndex] = current;
       return;
     }
 
@@ -452,15 +487,15 @@ function parseWorkoutText(text) {
     if (!exercise) return;
 
     if (!current) {
-      current = emptyWorkout(0);
+      current = workouts[0] || emptyWorkout(0);
       current.exercises = [];
-      workouts.push(current);
+      workouts[0] = current;
     }
 
     current.exercises.push(exercise);
   });
 
-  return workouts.filter((workout) => workout.exercises.length > 0);
+  return workouts.filter((workout) => workout?.exercises?.length > 0);
 }
 
 function showOnly(section) {
@@ -1147,7 +1182,7 @@ function startDurationStep() {
 
 function preparePreviewFromText() {
   const parsed = parseWorkoutText(els.planText.value);
-  state.parsedWorkouts = ensureThreeWorkouts(parsed);
+  state.parsedWorkouts = ensureThreeWorkouts(splitSingleWorkoutIntoThree(parsed));
   state.selectedPreviewWorkout = 0;
   saveDraft();
   renderPreview();
