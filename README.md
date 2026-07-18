@@ -15,6 +15,9 @@ Web app mobile-first per importare una scheda di allenamento in formato testo, s
 - Selezione durata tramite date o numero di settimane
 - Vista verticale con tab per workout
 - Vista a box verticali: si apre solo l'allenamento selezionato
+- Calendario settimanale cliccabile per segnare giorni programmati o fatti
+- Timer recupero su ogni esercizio, calcolato dai secondi scritti nella scheda
+- Pulsante V su ogni esercizio per segnare cosa hai completato oggi
 - Statistiche e miglioramenti aggiornati dai carichi salvati
 - Foto progressi salvate nel profilo locale
 - Campi modificabili per nome esercizio, serie, ripetizioni, recupero e carico

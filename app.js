@@ -14,6 +14,11 @@ const state = {
   selectedImages: [],
   diet: { goal: "", notes: "" },
   progressPhotos: [],
+  calendar: {},
+  selectedCalendarStart: null,
+  completedExercises: {},
+  activeTimer: null,
+  timerInterval: null,
 };
 
 const els = {
@@ -57,6 +62,10 @@ const els = {
   exerciseList: document.querySelector("#exerciseList"),
   programDates: document.querySelector("#programDates"),
   newImport: document.querySelector("#newImport"),
+  prevCalendarWeek: document.querySelector("#prevCalendarWeek"),
+  nextCalendarWeek: document.querySelector("#nextCalendarWeek"),
+  calendarTitle: document.querySelector("#calendarTitle"),
+  calendarStrip: document.querySelector("#calendarStrip"),
   historyTemplate: document.querySelector("#historyTemplate"),
   dietGoal: document.querySelector("#dietGoal"),
   dietNotes: document.querySelector("#dietNotes"),
@@ -149,9 +158,20 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function dateFromISO(dateISO) {
+  return new Date(`${dateISO}T00:00:00`);
+}
+
 function addDaysISO(dateISO, days) {
-  const date = new Date(`${dateISO}T00:00:00`);
+  const date = dateFromISO(dateISO);
   date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function weekStartISO(dateISO) {
+  const date = dateFromISO(dateISO);
+  const day = date.getDay() || 7;
+  date.setDate(date.getDate() - day + 1);
   return date.toISOString().slice(0, 10);
 }
 
@@ -161,6 +181,32 @@ function formatDate(dateISO) {
     month: "short",
     year: "numeric",
   }).format(new Date(`${dateISO}T00:00:00`));
+}
+
+function formatShortDay(dateISO) {
+  return new Intl.DateTimeFormat("it-IT", {
+    weekday: "short",
+    day: "2-digit",
+  }).format(dateFromISO(dateISO));
+}
+
+function parseRestSeconds(rest) {
+  const raw = String(rest || "").toLowerCase();
+  const match = raw.match(/(\d+)/);
+  if (!match) return 60;
+  const value = Number(match[1]);
+  if (raw.includes("min")) return value * 60;
+  return value;
+}
+
+function formatTimer(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${String(secs).padStart(2, "0")}`;
+}
+
+function completionKey(exerciseId, dateISO = todayISO()) {
+  return `${dateISO}:${exerciseId}`;
 }
 
 function escapeHtml(value) {
@@ -224,6 +270,9 @@ function saveState() {
       selectedWorkout: state.selectedWorkout,
       diet: state.diet,
       progressPhotos: state.progressPhotos,
+      calendar: state.calendar,
+      completedExercises: state.completedExercises,
+      selectedCalendarStart: state.selectedCalendarStart,
       activeView: state.activeView,
     }),
   );
@@ -250,6 +299,9 @@ function hydrateProfileState() {
   state.selectedPreviewWorkout = 0;
   state.diet = { goal: "", notes: "" };
   state.progressPhotos = [];
+  state.calendar = {};
+  state.completedExercises = {};
+  state.selectedCalendarStart = weekStartISO(todayISO());
   state.activeView = "workouts";
 
   const raw = localStorage.getItem(profileKey(STORAGE_KEY)) || localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
@@ -261,6 +313,9 @@ function hydrateProfileState() {
       state.activeView = saved.activeView || "workouts";
       state.diet = saved.diet || { goal: "", notes: "" };
       state.progressPhotos = saved.progressPhotos || [];
+      state.calendar = saved.calendar || {};
+      state.completedExercises = saved.completedExercises || {};
+      state.selectedCalendarStart = saved.selectedCalendarStart || weekStartISO(todayISO());
       if (state.program?.workouts) {
         state.program.workouts = cloneWorkouts(state.program.workouts);
         state.program.history = state.program.history || {};
@@ -623,6 +678,49 @@ function renderProgramSummary() {
   els.programDates.textContent = `${formatDate(startDate)} - ${formatDate(endDate)}`;
 }
 
+function calendarStatusLabel(status) {
+  if (status === "planned") return "P";
+  if (status === "done") return "F";
+  return "";
+}
+
+function nextCalendarStatus(status) {
+  if (!status) return "planned";
+  if (status === "planned") return "done";
+  return "";
+}
+
+function renderCalendar() {
+  if (!els.calendarStrip) return;
+  const start = state.selectedCalendarStart || weekStartISO(todayISO());
+  state.selectedCalendarStart = start;
+  els.calendarTitle.textContent = `${formatDate(start)} - ${formatDate(addDaysISO(start, 6))}`;
+  els.calendarStrip.innerHTML = "";
+
+  for (let index = 0; index < 7; index += 1) {
+    const dateISO = addDaysISO(start, index);
+    const status = state.calendar[dateISO] || "";
+    const button = document.createElement("button");
+    button.className = `calendar-day ${status ? `is-${status}` : ""} ${dateISO === todayISO() ? "today" : ""}`;
+    button.type = "button";
+    button.innerHTML = `
+      <span>${formatShortDay(dateISO)}</span>
+      <strong>${calendarStatusLabel(status) || "-"}</strong>
+    `;
+    button.addEventListener("click", () => {
+      const next = nextCalendarStatus(state.calendar[dateISO]);
+      if (next) {
+        state.calendar[dateISO] = next;
+      } else {
+        delete state.calendar[dateISO];
+      }
+      saveState();
+      renderCalendar();
+    });
+    els.calendarStrip.append(button);
+  }
+}
+
 function getExerciseHistory(exerciseId) {
   return state.program.history[exerciseId] || [];
 }
@@ -663,6 +761,34 @@ function renderHistory(exercise) {
     });
 
   return historyNode;
+}
+
+function stopExerciseTimer() {
+  if (state.timerInterval) {
+    clearInterval(state.timerInterval);
+  }
+  state.timerInterval = null;
+  state.activeTimer = null;
+}
+
+function startExerciseTimer(exerciseId, seconds) {
+  stopExerciseTimer();
+  state.activeTimer = {
+    exerciseId,
+    remaining: Math.max(1, seconds),
+  };
+  renderWorkouts();
+
+  state.timerInterval = setInterval(() => {
+    if (!state.activeTimer) return;
+    state.activeTimer.remaining -= 1;
+
+    if (state.activeTimer.remaining <= 0) {
+      stopExerciseTimer();
+    }
+
+    renderWorkouts();
+  }, 1000);
 }
 
 function allExercises() {
@@ -799,12 +925,17 @@ function updateExercise(exerciseId, patch) {
 function renderExerciseCard(exercise) {
   const card = document.createElement("article");
   card.className = "exercise-card";
+  const restSeconds = parseRestSeconds(exercise.rest);
+  const isDone = Boolean(state.completedExercises[completionKey(exercise.id)]);
+  const timerActive = state.activeTimer?.exerciseId === exercise.id;
+  const timerLabel = timerActive ? formatTimer(Math.max(0, state.activeTimer.remaining)) : formatTimer(restSeconds);
   card.innerHTML = `
     <div class="exercise-header">
       <label class="exercise-name-field">
         <span>Nome esercizio</span>
         <input class="exercise-name-input" type="text" value="${escapeHtml(exercise.name)}" placeholder="Esercizio" />
       </label>
+      <button class="done-button ${isDone ? "done" : ""}" type="button" aria-label="Segna esercizio fatto">${isDone ? "✓" : "V"}</button>
       <button class="remove-mini remove-exercise-live" type="button">Togli</button>
     </div>
     <div class="exercise-details-grid">
@@ -822,6 +953,12 @@ function renderExerciseCard(exercise) {
       </label>
     </div>
     <p class="last-weight">${latestWeightLabel(exercise.id)}</p>
+    <div class="exercise-actions">
+      <button class="timer-button ${timerActive ? "running" : ""}" type="button">
+        Timer ${timerLabel}
+      </button>
+      <span>Recupero: ${exercise.rest || `${restSeconds} sec`}</span>
+    </div>
     <div class="weight-row">
       <label>
         <span>Carico oggi (kg)</span>
@@ -834,6 +971,21 @@ function renderExerciseCard(exercise) {
   const latest = getExerciseHistory(exercise.id).at(-1);
   const weightInput = card.querySelector(".weight-input");
   if (latest) weightInput.value = latest.weight;
+
+  card.querySelector(".done-button").addEventListener("click", () => {
+    const key = completionKey(exercise.id);
+    if (state.completedExercises[key]) {
+      delete state.completedExercises[key];
+    } else {
+      state.completedExercises[key] = { date: todayISO(), exerciseId: exercise.id };
+    }
+    saveState();
+    renderWorkouts();
+  });
+
+  card.querySelector(".timer-button").addEventListener("click", () => {
+    startExerciseTimer(exercise.id, restSeconds);
+  });
 
   card.querySelector(".exercise-name-input").addEventListener("change", (event) => {
     updateExercise(exercise.id, { name: event.target.value.trim() || "Esercizio" });
@@ -960,6 +1112,7 @@ function renderAddWorkoutButton() {
 function renderWorkouts() {
   if (!state.program) return;
   renderProgramSummary();
+  renderCalendar();
   els.exerciseList.innerHTML = "";
 
   if (!state.program.workouts.length) {
@@ -1110,6 +1263,18 @@ els.progressPhotoInput.addEventListener("change", async (event) => {
   event.target.value = "";
   saveState();
   renderProgressPhotos();
+});
+
+els.prevCalendarWeek.addEventListener("click", () => {
+  state.selectedCalendarStart = addDaysISO(state.selectedCalendarStart || weekStartISO(todayISO()), -7);
+  saveState();
+  renderCalendar();
+});
+
+els.nextCalendarWeek.addEventListener("click", () => {
+  state.selectedCalendarStart = addDaysISO(state.selectedCalendarStart || weekStartISO(todayISO()), 7);
+  saveState();
+  renderCalendar();
 });
 
 els.parsePlan.addEventListener("click", preparePreviewFromText);
