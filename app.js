@@ -97,7 +97,7 @@ function emptyExercise() {
 function emptyWorkout(index = 0) {
   return {
     id: uid("workout"),
-    title: `Giorno ${index + 1}`,
+    title: `Allenamento ${index + 1}`,
     exercises: [emptyExercise()],
   };
 }
@@ -105,7 +105,7 @@ function emptyWorkout(index = 0) {
 function cloneWorkouts(workouts) {
   return workouts.map((workout, index) => ({
     id: workout.id || uid("workout"),
-    title: workout.title || `Giorno ${index + 1}`,
+    title: workout.title || `Allenamento ${index + 1}`,
     exercises: (workout.exercises || []).map((exercise) => ({
       id: exercise.id || createExerciseId(exercise.name),
       name: exercise.name || "",
@@ -142,11 +142,23 @@ function isWorkoutHeading(line) {
 }
 
 function workoutTitleFrom(line, index) {
-  const match = line
-    .trim()
-    .match(/(allenamento|workout|giorno|day|sessione|scheda)\s*[:#-]?\s*([a-z]|\d+|uno|due|tre|quattro|cinque)?/i);
-  const suffix = match?.[2] ? match[2].toUpperCase() : `${index + 1}`;
-  return `Giorno ${suffix}`;
+  const match = line.trim().match(/(allenamento|workout|giorno|day|sessione|scheda)\s*[:#-]?\s*([a-z]|\d+|uno|due|tre|quattro|cinque)?/i);
+  const rawSuffix = match?.[2]?.toLowerCase();
+  const words = { uno: "1", due: "2", tre: "3", quattro: "4", cinque: "5" };
+  const suffix = words[rawSuffix] || rawSuffix?.toUpperCase() || `${index + 1}`;
+  return `Allenamento ${suffix}`;
+}
+
+function ensureThreeWorkouts(workouts) {
+  const next = cloneWorkouts(workouts);
+  while (next.length < 3) {
+    next.push(emptyWorkout(next.length));
+  }
+
+  return next.map((workout, index) => ({
+    ...workout,
+    title: workout.title?.trim() || `Allenamento ${index + 1}`,
+  }));
 }
 
 function parseExerciseLine(line) {
@@ -250,7 +262,7 @@ function updatePreviewModelFromInputs() {
 
     return {
       id: card.dataset.workoutId || uid("workout"),
-      title: card.querySelector("[data-field='title']").value.trim() || `Giorno ${workoutIndex + 1}`,
+      title: card.querySelector("[data-field='title']").value.trim() || `Allenamento ${workoutIndex + 1}`,
       exercises: exercises.filter((exercise) => exercise.name || exercise.sets || exercise.reps || exercise.rest),
     };
   });
@@ -299,8 +311,8 @@ function renderPreview() {
     card.innerHTML = `
       <div class="preview-day-head">
         <label>
-          <span>Nome giorno</span>
-          <input data-field="title" type="text" value="${escapeHtml(workout.title || `Giorno ${workoutIndex + 1}`)}" />
+          <span>Nome allenamento</span>
+          <input data-field="title" type="text" value="${escapeHtml(workout.title || `Allenamento ${workoutIndex + 1}`)}" />
         </label>
         <button class="remove-day" type="button">Togli</button>
       </div>
@@ -369,7 +381,7 @@ function renderWorkoutTabs() {
     const button = document.createElement("button");
     button.className = `workout-tab ${index === state.selectedWorkout ? "active" : ""}`;
     button.type = "button";
-    button.textContent = workout.title || `Giorno ${index + 1}`;
+    button.textContent = workout.title || `Allenamento ${index + 1}`;
     button.addEventListener("click", () => {
       state.selectedWorkout = index;
       renderWorkouts();
@@ -380,7 +392,7 @@ function renderWorkoutTabs() {
   const addButton = document.createElement("button");
   addButton.className = "workout-tab add-tab";
   addButton.type = "button";
-  addButton.textContent = "+ Giorno";
+  addButton.textContent = "+ Allenamento";
   addButton.addEventListener("click", () => {
     state.program.workouts.push(emptyWorkout(state.program.workouts.length));
     state.selectedWorkout = state.program.workouts.length - 1;
@@ -518,17 +530,17 @@ function renderWorkoutTools(workout) {
   tools.className = "workout-tools";
   tools.innerHTML = `
     <label>
-      <span>Nome giorno</span>
+      <span>Nome allenamento</span>
       <input id="currentWorkoutTitle" type="text" value="${escapeHtml(workout.title)}" />
     </label>
     <div class="action-row">
       <button class="secondary-button" id="addLiveExercise" type="button">Aggiungi esercizio</button>
-      <button class="secondary-button danger-button" id="removeLiveWorkout" type="button">Togli giorno</button>
+      <button class="secondary-button danger-button" id="removeLiveWorkout" type="button">Togli allenamento</button>
     </div>
   `;
 
   tools.querySelector("#currentWorkoutTitle").addEventListener("change", (event) => {
-    workout.title = event.target.value.trim() || `Giorno ${state.selectedWorkout + 1}`;
+    workout.title = event.target.value.trim() || `Allenamento ${state.selectedWorkout + 1}`;
     saveState();
     renderWorkouts();
   });
@@ -565,7 +577,7 @@ function renderWorkouts() {
   els.exerciseList.append(renderWorkoutTools(workout));
 
   if (!workout.exercises.length) {
-    els.exerciseList.insertAdjacentHTML("beforeend", '<p class="empty-state">Aggiungi il primo esercizio di questo giorno.</p>');
+    els.exerciseList.insertAdjacentHTML("beforeend", '<p class="empty-state">Aggiungi il primo esercizio di questo allenamento.</p>');
   }
 
   workout.exercises.forEach((exercise) => {
@@ -578,7 +590,7 @@ function renderWorkouts() {
 function startDurationStep() {
   updatePreviewModelFromInputs();
   if (!state.parsedWorkouts.length) {
-    state.parsedWorkouts = [emptyWorkout(0)];
+    state.parsedWorkouts = ensureThreeWorkouts([]);
     renderPreview();
     return;
   }
@@ -592,7 +604,7 @@ function startDurationStep() {
 
 function preparePreviewFromText() {
   const parsed = parseWorkoutText(els.planText.value);
-  state.parsedWorkouts = parsed.length ? parsed : [emptyWorkout(0), emptyWorkout(1), emptyWorkout(2)];
+  state.parsedWorkouts = ensureThreeWorkouts(parsed);
   renderPreview();
   showOnly("preview");
 }
