@@ -198,7 +198,7 @@ function emptyWorkout(index = 0) {
   return {
     id: uid("workout"),
     title: `Allenamento ${index + 1}`,
-    exercises: [emptyExercise()],
+    exercises: [],
   };
 }
 
@@ -298,7 +298,7 @@ function loadActiveProfile() {
 
 function isWorkoutHeading(line) {
   const cleaned = line.trim().toLowerCase();
-  return /^(allenamento|workout|giorno|day|sessione|scheda)\s*[:#-]?\s*([a-z]|\d+|uno|due|tre|quattro|cinque)?\b/.test(cleaned);
+  return /\b(allenamento|workout|giorno|day|sessione)\s*[:#-]?\s*([a-z]|\d+|uno|due|tre|quattro|cinque)?\b/.test(cleaned);
 }
 
 function workoutTitleFrom(line, index) {
@@ -365,8 +365,16 @@ function parseExerciseLine(line) {
   };
 }
 
+function normalizeOcrText(text) {
+  return text
+    .replace(/\r/g, "\n")
+    .replace(/\b(WORKOUT|Allenamento|Giorno|Day)\s*([1-9A-C])\b/gi, "\n$1 $2\n")
+    .replace(/\b(SET|RPT|REP|REC|Esercizio)\b/gi, "\n$1 ")
+    .replace(/\n{2,}/g, "\n");
+}
+
 function parseWorkoutText(text) {
-  const lines = text
+  const lines = normalizeOcrText(text)
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
