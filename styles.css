@@ -476,16 +476,16 @@ button:focus-visible {
 }
 
 .workout-box-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   width: 100%;
-  min-height: 62px;
+  min-height: 74px;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px 12px;
   border: 0;
   background: var(--surface-2);
   color: var(--text);
-  padding: 0 14px;
+  padding: 10px 14px;
   text-align: left;
 }
 
@@ -503,6 +503,29 @@ button:focus-visible {
   font-weight: 800;
 }
 
+.workout-squares {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 5px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.workout-squares i {
+  display: block;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #07101d;
+}
+
+.workout-squares i.done {
+  border-color: rgba(163, 230, 53, 0.8);
+  background: var(--accent);
+}
+
 .workout-box-content {
   display: grid;
   gap: 12px;
@@ -516,6 +539,15 @@ button:focus-visible {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
+}
+
+.workout-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.workout-footer button {
+  width: min(210px, 100%);
 }
 
 .danger-button {

@@ -309,7 +309,7 @@ function hydrateProfileState() {
     try {
       const saved = JSON.parse(raw);
       state.program = saved.program;
-      state.selectedWorkout = saved.selectedWorkout || 0;
+      state.selectedWorkout = saved.selectedWorkout ?? 0;
       state.activeView = saved.activeView || "workouts";
       state.diet = saved.diet || { goal: "", notes: "" };
       state.progressPhotos = saved.progressPhotos || [];
@@ -319,7 +319,9 @@ function hydrateProfileState() {
       if (state.program?.workouts) {
         state.program.workouts = cloneWorkouts(state.program.workouts);
         state.program.history = state.program.history || {};
-        state.selectedWorkout = Math.min(state.selectedWorkout, Math.max(0, state.program.workouts.length - 1));
+        if (state.selectedWorkout !== null) {
+          state.selectedWorkout = Math.min(state.selectedWorkout, Math.max(0, state.program.workouts.length - 1));
+        }
       }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
@@ -1056,6 +1058,16 @@ function renderExerciseCard(exercise) {
   return card;
 }
 
+function workoutCompletionCount(workout) {
+  return (workout.exercises || []).filter((exercise) => state.completedExercises[completionKey(exercise.id)]).length;
+}
+
+function renderWorkoutSquares(workout) {
+  const total = Math.max(1, workout.exercises.length || 1);
+  const done = workoutCompletionCount(workout);
+  return Array.from({ length: total }, (_, index) => `<i class="${index < done ? "done" : ""}"></i>`).join("");
+}
+
 function renderWorkoutTools(workout, workoutIndex) {
   const tools = document.createElement("article");
   tools.className = "workout-tools";
@@ -1066,7 +1078,7 @@ function renderWorkoutTools(workout, workoutIndex) {
     </label>
     <div class="action-row">
       <button class="secondary-button" id="addLiveExercise" type="button">Aggiungi esercizio</button>
-      <button class="secondary-button danger-button" id="removeLiveWorkout" type="button">Togli allenamento</button>
+      <button class="secondary-button" id="closeLiveWorkout" type="button">Chiudi</button>
     </div>
   `;
 
@@ -1082,15 +1094,29 @@ function renderWorkoutTools(workout, workoutIndex) {
     renderWorkouts();
   });
 
-  tools.querySelector("#removeLiveWorkout").addEventListener("click", () => {
-    if (state.program.workouts.length === 1) return;
-    state.program.workouts.splice(workoutIndex, 1);
-    state.selectedWorkout = Math.max(0, state.selectedWorkout - 1);
+  tools.querySelector("#closeLiveWorkout").addEventListener("click", () => {
+    state.selectedWorkout = null;
     saveState();
     renderWorkouts();
   });
 
   return tools;
+}
+
+function renderWorkoutFooter(workoutIndex) {
+  const footer = document.createElement("div");
+  footer.className = "workout-footer";
+  footer.innerHTML = '<button class="secondary-button danger-button" type="button">Togli allenamento</button>';
+
+  footer.querySelector("button").addEventListener("click", () => {
+    if (state.program.workouts.length === 1) return;
+    state.program.workouts.splice(workoutIndex, 1);
+    state.selectedWorkout = state.program.workouts.length ? Math.min(workoutIndex, state.program.workouts.length - 1) : null;
+    saveState();
+    renderWorkouts();
+  });
+
+  return footer;
 }
 
 function renderWorkoutBox(workout, workoutIndex) {
@@ -1103,10 +1129,11 @@ function renderWorkoutBox(workout, workoutIndex) {
   header.type = "button";
   header.innerHTML = `
     <span>${escapeHtml(workout.title || `Allenamento ${workoutIndex + 1}`)}</span>
-    <small>${workout.exercises.length || 0} esercizi</small>
+    <small>${workoutCompletionCount(workout)}/${workout.exercises.length || 0} fatti</small>
+    <em class="workout-squares" aria-hidden="true">${renderWorkoutSquares(workout)}</em>
   `;
   header.addEventListener("click", () => {
-    state.selectedWorkout = workoutIndex;
+    state.selectedWorkout = isOpen ? null : workoutIndex;
     saveState();
     renderWorkouts();
   });
@@ -1126,6 +1153,7 @@ function renderWorkoutBox(workout, workoutIndex) {
     content.append(renderExerciseCard(exercise));
   });
 
+  content.append(renderWorkoutFooter(workoutIndex));
   box.append(content);
   return box;
 }
@@ -1154,7 +1182,9 @@ function renderWorkouts() {
     state.program.workouts = ensureThreeWorkouts([]);
   }
 
-  state.selectedWorkout = Math.min(state.selectedWorkout, Math.max(0, state.program.workouts.length - 1));
+  if (state.selectedWorkout !== null) {
+    state.selectedWorkout = Math.min(state.selectedWorkout, Math.max(0, state.program.workouts.length - 1));
+  }
 
   state.program.workouts.forEach((workout, workoutIndex) => {
     els.exerciseList.append(renderWorkoutBox(workout, workoutIndex));
