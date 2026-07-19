@@ -76,6 +76,7 @@ const els = {
   prevCalendarWeek: document.querySelector("#prevCalendarWeek"),
   nextCalendarWeek: document.querySelector("#nextCalendarWeek"),
   calendarToggle: document.querySelector("#calendarToggle"),
+  calendarBackdrop: document.querySelector("#calendarBackdrop"),
   calendarPanel: document.querySelector("#calendarPanel"),
   calendarTitle: document.querySelector("#calendarTitle"),
   calendarStrip: document.querySelector("#calendarStrip"),
@@ -896,12 +897,20 @@ function renderCalendarDayActions(dateISO) {
 function renderCalendar() {
   if (!els.calendarStrip) return;
   els.calendarPanel.classList.toggle("collapsed", !state.calendarOpen);
+  els.calendarBackdrop.classList.toggle("hidden", !state.calendarOpen);
   els.calendarToggle.setAttribute("aria-expanded", String(state.calendarOpen));
+  els.calendarToggle.textContent = state.calendarOpen ? "X" : "Cal";
   const start = monthStartISO(state.selectedCalendarStart || todayISO());
   state.selectedCalendarStart = start;
   els.calendarTitle.textContent = formatMonth(start);
   els.calendarStrip.innerHTML = "";
   els.calendarStrip.classList.add("month-grid");
+  ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"].forEach((label) => {
+    const weekday = document.createElement("span");
+    weekday.className = "calendar-weekday";
+    weekday.textContent = label;
+    els.calendarStrip.append(weekday);
+  });
 
   const startDate = dateFromISO(start);
   const firstWeekday = startDate.getDay() || 7;
@@ -922,8 +931,8 @@ function renderCalendar() {
     button.className = `calendar-day ${status ? `is-${status}` : ""} ${session ? "has-session" : ""} ${dateISO === state.selectedCalendarDate ? "selected" : ""} ${dateISO === todayISO() ? "today" : ""}`;
     button.type = "button";
     button.innerHTML = `
-      <span>${formatShortDay(dateISO)}</span>
-      <strong>${calendarStatusLabel(status) || "-"}</strong>
+      <strong>${day}</strong>
+      <span>${calendarStatusLabel(status)}</span>
       ${session ? `<small>${escapeHtml(session.workoutTitle)}</small>` : ""}
     `;
     button.addEventListener("click", () => {
@@ -1979,6 +1988,12 @@ els.calendarToggle.addEventListener("click", () => {
   renderCalendar();
 });
 
+els.calendarBackdrop.addEventListener("click", () => {
+  state.calendarOpen = false;
+  saveState();
+  renderCalendar();
+});
+
 els.featureNav.addEventListener("click", (event) => {
   const button = event.target.closest(".feature-card");
   if (!button) return;
@@ -2051,13 +2066,15 @@ els.progressPhotoInput.addEventListener("change", async (event) => {
 });
 
 els.prevCalendarWeek.addEventListener("click", () => {
-  state.selectedCalendarStart = addMonthsISO(state.selectedCalendarStart || monthStartISO(todayISO()), -1);
+  const current = monthStartISO(state.selectedCalendarStart || todayISO());
+  state.selectedCalendarStart = addMonthsISO(current, -1);
   saveState();
   renderCalendar();
 });
 
 els.nextCalendarWeek.addEventListener("click", () => {
-  state.selectedCalendarStart = addMonthsISO(state.selectedCalendarStart || monthStartISO(todayISO()), 1);
+  const current = monthStartISO(state.selectedCalendarStart || todayISO());
+  state.selectedCalendarStart = addMonthsISO(current, 1);
   saveState();
   renderCalendar();
 });

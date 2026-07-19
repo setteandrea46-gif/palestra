@@ -151,12 +151,13 @@
           <button class="secondary-button compact" id="newImport" type="button">Nuova scheda</button>
         </div>
 
-        <button class="calendar-toggle" id="calendarToggle" type="button" aria-expanded="false">Calendario</button>
+        <div class="calendar-backdrop hidden" id="calendarBackdrop"></div>
+        <button class="calendar-toggle" id="calendarToggle" type="button" aria-expanded="false" aria-label="Apri calendario">Cal</button>
         <section class="calendar-panel collapsed" id="calendarPanel" aria-label="Calendario palestra">
           <div class="calendar-head">
-            <button class="secondary-button compact" id="prevCalendarWeek" type="button">Indietro</button>
+            <button class="calendar-arrow" id="prevCalendarWeek" type="button" aria-label="Mese precedente">‹</button>
             <strong id="calendarTitle">Mese</strong>
-            <button class="secondary-button compact" id="nextCalendarWeek" type="button">Avanti</button>
+            <button class="calendar-arrow" id="nextCalendarWeek" type="button" aria-label="Mese successivo">›</button>
           </div>
           <div id="calendarStrip" class="calendar-strip"></div>
           <div id="calendarDayActions" class="calendar-day-actions hidden"></div>
