@@ -418,6 +418,12 @@ button:focus-visible {
   color: var(--danger);
 }
 
+.preview-day.active .remove-day {
+  border-color: rgba(56, 189, 248, 0.62);
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--text);
+}
+
 .remove-mini {
   align-self: end;
   padding: 0 8px;
@@ -595,20 +601,8 @@ button:focus-visible {
   margin-bottom: 10px;
 }
 
-.weight-row {
-  display: grid;
-  grid-template-columns: 1fr 96px;
-  gap: 10px;
-  align-items: end;
-}
-
-.weight-row input {
-  font-size: 1.55rem;
-  font-weight: 900;
-}
-
 .save-weight {
-  min-height: 54px;
+  min-height: 50px;
   border: 0;
   border-radius: 8px;
   background: var(--accent);
@@ -623,30 +617,81 @@ button:focus-visible {
 
 .exercise-actions {
   display: grid;
-  grid-template-columns: 132px 1fr;
+  grid-template-columns: 1fr 76px;
   gap: 10px;
   align-items: center;
   margin-bottom: 10px;
 }
 
-.exercise-actions span {
+.rest-label {
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   font-weight: 800;
 }
 
 .timer-button {
-  min-height: 48px;
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: 1px solid rgba(56, 189, 248, 0.62);
   border-radius: 8px;
   background: rgba(56, 189, 248, 0.15);
   color: var(--text);
+  font-size: 0.86rem;
   font-weight: 900;
+}
+
+.clock-face {
+  position: relative;
+  width: 17px;
+  height: 17px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.clock-face::before,
+.clock-face::after {
+  position: absolute;
+  left: 7px;
+  top: 3px;
+  width: 2px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+  transform-origin: bottom center;
+}
+
+.clock-face::after {
+  top: 7px;
+  height: 5px;
+  transform: rotate(90deg);
 }
 
 .timer-button.running {
   border-color: var(--focus);
   background: rgba(251, 191, 36, 0.24);
+}
+
+.set-weights {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.set-weight-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.set-weight-grid input {
+  min-height: 46px;
+  padding: 8px;
+  font-size: 1.2rem;
+  font-weight: 900;
 }
 
 .history {

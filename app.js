@@ -333,7 +333,7 @@ function hydrateProfileState() {
     try {
       const draft = JSON.parse(draftRaw);
       state.parsedWorkouts = cloneWorkouts(draft.parsedWorkouts || []);
-      state.selectedPreviewWorkout = draft.selectedPreviewWorkout || 0;
+      state.selectedPreviewWorkout = draft.selectedPreviewWorkout ?? 0;
     } catch {
       clearDraft();
     }
@@ -624,7 +624,9 @@ function makePreviewExerciseRow(exercise = emptyExercise()) {
 
 function renderPreview() {
   els.previewList.innerHTML = "";
-  state.selectedPreviewWorkout = Math.min(state.selectedPreviewWorkout, Math.max(0, state.parsedWorkouts.length - 1));
+  if (state.selectedPreviewWorkout !== null) {
+    state.selectedPreviewWorkout = Math.min(state.selectedPreviewWorkout, Math.max(0, state.parsedWorkouts.length - 1));
+  }
 
   state.parsedWorkouts.forEach((workout, workoutIndex) => {
     const isOpen = workoutIndex === state.selectedPreviewWorkout;
@@ -638,7 +640,7 @@ function renderPreview() {
           <input data-field="title" type="text" value="${escapeHtml(workout.title || `Allenamento ${workoutIndex + 1}`)}" />
         </label>
         <button class="open-day" type="button">${isOpen ? "Aperto" : "Apri"}</button>
-        <button class="remove-day" type="button">Togli</button>
+        <button class="remove-day" type="button">${isOpen ? "Chiudi" : "Togli"}</button>
       </div>
       <div class="preview-summary">${workout.exercises.length || 0} esercizi</div>
       <div class="preview-exercises ${isOpen ? "" : "hidden"}"></div>
@@ -658,9 +660,19 @@ function renderPreview() {
       renderPreview();
     });
     card.querySelector(".remove-day").addEventListener("click", () => {
+      if (isOpen) {
+        updatePreviewModelFromInputs();
+        state.selectedPreviewWorkout = null;
+        saveDraft();
+        renderPreview();
+        return;
+      }
+
       card.remove();
       updatePreviewModelFromInputs();
-      state.selectedPreviewWorkout = Math.max(0, Math.min(state.selectedPreviewWorkout, state.parsedWorkouts.length - 1));
+      if (state.selectedPreviewWorkout !== null) {
+        state.selectedPreviewWorkout = Math.max(0, Math.min(state.selectedPreviewWorkout, state.parsedWorkouts.length - 1));
+      }
       saveDraft();
       renderPreview();
     });
@@ -762,10 +774,35 @@ function getExerciseHistory(exerciseId) {
   return state.program.history[exerciseId] || [];
 }
 
+function setCountFromExercise(exercise) {
+  const count = Number.parseInt(exercise.sets, 10);
+  return Number.isFinite(count) && count > 0 ? Math.min(count, 12) : 3;
+}
+
+function entryWeights(entry) {
+  if (Array.isArray(entry.weights)) {
+    return entry.weights.map(Number).filter((weight) => Number.isFinite(weight) && weight > 0);
+  }
+
+  const weight = Number(entry.weight);
+  return Number.isFinite(weight) && weight > 0 ? [weight] : [];
+}
+
+function entryBestWeight(entry) {
+  const weights = entryWeights(entry);
+  return weights.length ? Math.max(...weights) : 0;
+}
+
+function entryWeightsLabel(entry) {
+  const weights = entryWeights(entry);
+  return weights.length ? weights.map((weight) => `${weight} kg`).join(" / ") : "senza peso";
+}
+
 function latestWeightLabel(exerciseId) {
   const history = getExerciseHistory(exerciseId);
   if (!history.length) return "Nessun peso salvato";
-  return `Ultimo peso: ${history.at(-1).weight} kg il ${formatDate(history.at(-1).date)}`;
+  const latest = history.at(-1);
+  return `Ultima sessione: ${entryWeightsLabel(latest)} il ${formatDate(latest.date)}`;
 }
 
 function renderHistory(exercise) {
@@ -779,12 +816,13 @@ function renderHistory(exercise) {
     return historyNode;
   }
 
-  const maxWeight = Math.max(...history.map((entry) => Number(entry.weight)));
+  const maxWeight = Math.max(...history.map(entryBestWeight), 1);
   history.slice(-8).forEach((entry) => {
     const bar = document.createElement("div");
     bar.className = "bar";
-    bar.title = `${entry.weight} kg`;
-    bar.style.height = `${Math.max(14, (Number(entry.weight) / maxWeight) * 100)}%`;
+    const bestWeight = entryBestWeight(entry);
+    bar.title = `${bestWeight} kg`;
+    bar.style.height = `${Math.max(14, (bestWeight / maxWeight) * 100)}%`;
     chart.append(bar);
   });
 
@@ -793,7 +831,7 @@ function renderHistory(exercise) {
     .reverse()
     .forEach((entry) => {
       const item = document.createElement("li");
-      item.textContent = `${formatDate(entry.date)} - ${entry.weight} kg`;
+      item.textContent = `${formatDate(entry.date)} - ${entryWeightsLabel(entry)}`;
       list.append(item);
     });
 
@@ -846,7 +884,7 @@ function improvementRows() {
   return Object.entries(state.program?.history || {})
     .map(([exerciseId, entries]) => {
       if (!entries.length) return null;
-      const weights = entries.map((entry) => Number(entry.weight)).filter(Number.isFinite);
+      const weights = entries.map(entryBestWeight).filter((weight) => Number.isFinite(weight) && weight > 0);
       const first = weights[0] || 0;
       const best = Math.max(...weights, 0);
       const latest = weights.at(-1) || 0;
@@ -963,9 +1001,18 @@ function renderExerciseCard(exercise) {
   const card = document.createElement("article");
   card.className = "exercise-card";
   const restSeconds = parseRestSeconds(exercise.rest);
+  const setCount = setCountFromExercise(exercise);
   const isDone = Boolean(state.completedExercises[completionKey(exercise.id)]);
   const timerActive = state.activeTimer?.exerciseId === exercise.id;
   const timerLabel = timerActive ? formatTimer(Math.max(0, state.activeTimer.remaining)) : formatTimer(restSeconds);
+  const latestWeights = entryWeights(getExerciseHistory(exercise.id).at(-1) || {});
+  const setWeightInputs = Array.from({ length: setCount }, (_, index) => `
+    <label>
+      <span>Serie ${index + 1}</span>
+      <input class="set-weight-input" inputmode="decimal" type="number" min="0" step="0.5" value="${escapeHtml(latestWeights[index] || "")}" placeholder="kg" />
+    </label>
+  `).join("");
+
   card.innerHTML = `
     <div class="exercise-header">
       <label class="exercise-name-field">
@@ -991,23 +1038,17 @@ function renderExerciseCard(exercise) {
     </div>
     <p class="last-weight">${latestWeightLabel(exercise.id)}</p>
     <div class="exercise-actions">
-      <button class="timer-button ${timerActive ? "running" : ""}" type="button">
-        Timer ${timerLabel}
+      <span class="rest-label">Recupero: ${exercise.rest || `${restSeconds} sec`}</span>
+      <button class="timer-button ${timerActive ? "running" : ""}" type="button" aria-label="Avvia timer recupero">
+        <span class="clock-face" aria-hidden="true"></span>
+        ${timerLabel}
       </button>
-      <span>Recupero: ${exercise.rest || `${restSeconds} sec`}</span>
     </div>
-    <div class="weight-row">
-      <label>
-        <span>Carico oggi (kg)</span>
-        <input class="weight-input" inputmode="decimal" type="number" min="0" step="0.5" placeholder="0" />
-      </label>
-      <button class="save-weight" type="button">Salva</button>
+    <div class="set-weights">
+      <div class="set-weight-grid">${setWeightInputs}</div>
+      <button class="save-weight" type="button">Fatto</button>
     </div>
   `;
-
-  const latest = getExerciseHistory(exercise.id).at(-1);
-  const weightInput = card.querySelector(".weight-input");
-  if (latest) weightInput.value = latest.weight;
 
   card.querySelector(".done-button").addEventListener("click", () => {
     const key = completionKey(exercise.id);
@@ -1040,15 +1081,22 @@ function renderExerciseCard(exercise) {
   });
 
   card.querySelector(".save-weight").addEventListener("click", () => {
-    const weight = Number(weightInput.value);
-    if (!Number.isFinite(weight) || weight <= 0) {
-      weightInput.focus();
+    const inputs = [...card.querySelectorAll(".set-weight-input")];
+    const weights = inputs.map((input) => Number(input.value)).filter((weight) => Number.isFinite(weight) && weight > 0);
+    if (!weights.length) {
+      inputs[0]?.focus();
       return;
     }
 
+    const key = completionKey(exercise.id);
+    state.completedExercises[key] = { date: todayISO(), exerciseId: exercise.id };
     state.program.history[exercise.id] = [
       ...getExerciseHistory(exercise.id),
-      { date: todayISO(), weight: Number(weight.toFixed(2)) },
+      {
+        date: todayISO(),
+        weights: weights.map((weight) => Number(weight.toFixed(2))),
+        weight: Number(Math.max(...weights).toFixed(2)),
+      },
     ];
     saveState();
     renderWorkouts();
