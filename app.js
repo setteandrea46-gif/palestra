@@ -826,6 +826,19 @@ function saveExerciseSession(exercise, weights) {
   return true;
 }
 
+function resetWorkoutSession(workout) {
+  const exerciseIds = new Set((workout.exercises || []).map((exercise) => exercise.id));
+
+  workout.exercises.forEach((exercise) => {
+    exercise.sessionWeights = [];
+    delete state.completedExercises[completionKey(exercise.id)];
+  });
+
+  if (state.activeTimer && exerciseIds.has(state.activeTimer.exerciseId)) {
+    stopExerciseTimer();
+  }
+}
+
 function latestWeightLabel(exerciseId) {
   const history = getExerciseHistory(exerciseId);
   if (!history.length) return "Nessun peso salvato";
@@ -1190,11 +1203,11 @@ function renderWorkoutFooter(workoutIndex) {
   `;
 
   footer.querySelector(".send-workout").addEventListener("click", () => {
-    const savedCount = workout.exercises.reduce((count, exercise) => {
+    workout.exercises.reduce((count, exercise) => {
       return saveExerciseSession(exercise, exercise.sessionWeights || []) ? count + 1 : count;
     }, 0);
 
-    if (!savedCount) return;
+    resetWorkoutSession(workout);
     saveState();
     renderWorkouts();
     renderImprovements();
