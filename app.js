@@ -1015,11 +1015,11 @@ function renderExerciseCard(exercise) {
 
   card.innerHTML = `
     <div class="exercise-header">
+      <button class="done-button ${isDone ? "done" : ""}" type="button" aria-label="Segna esercizio fatto">${isDone ? "✓" : ""}</button>
       <label class="exercise-name-field">
         <span>Nome esercizio</span>
         <input class="exercise-name-input" type="text" value="${escapeHtml(exercise.name)}" placeholder="Esercizio" />
       </label>
-      <button class="done-button ${isDone ? "done" : ""}" type="button" aria-label="Segna esercizio fatto">${isDone ? "✓" : "V"}</button>
       <button class="remove-mini remove-exercise-live" type="button">Togli</button>
     </div>
     <div class="exercise-details-grid">
@@ -1028,22 +1028,21 @@ function renderExerciseCard(exercise) {
         <input class="sets-input" type="number" min="1" value="${escapeHtml(exercise.sets)}" placeholder="4" />
       </label>
       <label>
-        <span>Rip.</span>
+        <span>Ripetizioni</span>
         <input class="reps-input" type="text" value="${escapeHtml(exercise.reps)}" placeholder="8" />
       </label>
-      <label>
-        <span>Rec.</span>
+    </div>
+    <div class="exercise-actions">
+      <label class="rest-field">
+        <span>Recupero</span>
         <input class="rest-input" type="text" value="${escapeHtml(exercise.rest)}" placeholder="90 sec" />
       </label>
+      <span class="timer-stopwatch" aria-hidden="true"></span>
+      <strong class="timer-readout">${timerLabel}</strong>
+      <button class="timer-play ${timerActive ? "running" : ""}" type="button" aria-label="Avvia timer recupero"></button>
+      <button class="timer-reset" type="button" aria-label="Reset timer"></button>
     </div>
     <p class="last-weight">${latestWeightLabel(exercise.id)}</p>
-    <div class="exercise-actions">
-      <span class="rest-label">Recupero: ${exercise.rest || `${restSeconds} sec`}</span>
-      <button class="timer-button ${timerActive ? "running" : ""}" type="button" aria-label="Avvia timer recupero">
-        <span class="clock-face" aria-hidden="true"></span>
-        ${timerLabel}
-      </button>
-    </div>
     <div class="set-weights">
       <div class="set-weight-grid">${setWeightInputs}</div>
       <button class="save-weight" type="button">Fatto</button>
@@ -1061,8 +1060,15 @@ function renderExerciseCard(exercise) {
     renderWorkouts();
   });
 
-  card.querySelector(".timer-button").addEventListener("click", () => {
+  card.querySelector(".timer-play").addEventListener("click", () => {
     startExerciseTimer(exercise.id, restSeconds);
+  });
+
+  card.querySelector(".timer-reset").addEventListener("click", () => {
+    if (state.activeTimer?.exerciseId === exercise.id) {
+      stopExerciseTimer();
+      renderWorkouts();
+    }
   });
 
   card.querySelector(".exercise-name-input").addEventListener("change", (event) => {
