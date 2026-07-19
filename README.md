@@ -1,4 +1,4 @@
-# Scheda Palestra
+# Scheda Andrea
 
 Web app mobile-first per importare una scheda di allenamento in formato testo, salvarne la durata e tracciare i pesi usati nel tempo.
 
