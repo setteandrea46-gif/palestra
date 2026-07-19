@@ -913,6 +913,15 @@ button:focus-visible {
   padding-bottom: 2px;
 }
 
+.calendar-strip.month-grid {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  overflow-x: visible;
+}
+
+.calendar-spacer {
+  min-height: 58px;
+}
+
 .calendar-day {
   display: grid;
   min-height: 70px;
@@ -933,6 +942,20 @@ button:focus-visible {
 .calendar-day strong {
   font-size: 1.25rem;
   line-height: 1;
+}
+
+.calendar-day small {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 0.62rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-day.has-session {
+  border-color: rgba(34, 211, 238, 0.62);
 }
 
 .calendar-day.today {
@@ -963,6 +986,45 @@ button:focus-visible {
 .metric-card strong {
   font-size: 1.35rem;
   line-height: 1.1;
+}
+
+.stats-tools,
+.body-metrics-form {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.stats-tools {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.backup-picker {
+  min-height: 48px;
+  border-style: solid;
+}
+
+.session-history {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.session-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.session-card ol {
+  margin: 0;
+  padding-left: 22px;
+  color: var(--muted);
+}
+
+.session-card li {
+  margin-bottom: 7px;
 }
 
 .workout-summary {
@@ -1222,6 +1284,7 @@ h1 {
 .improvement-card,
 .body-map-card,
 .workout-summary,
+.session-card,
 .exercise-card {
   border-color: rgba(148, 163, 184, 0.18);
   background:

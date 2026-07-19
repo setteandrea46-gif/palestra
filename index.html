@@ -12,15 +12,15 @@
       <section class="panel login-panel" id="loginSection">
         <div class="section-heading">
           <h2>Accedi al tuo spazio</h2>
-          <p>Inserisci il tuo nome la prima volta. Da questo telefono la scheda resta salvata nel tuo profilo.</p>
+          <p>Inserisci nome e PIN. Ogni profilo resta separato e protetto su questo telefono.</p>
         </div>
         <label>
           <span>Nome profilo</span>
           <input id="profileName" type="text" autocomplete="username" placeholder="Andrea" />
         </label>
         <label>
-          <span>PIN opzionale</span>
-          <input id="profilePin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Solo se vuoi proteggerlo" />
+          <span>PIN</span>
+          <input id="profilePin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Obbligatorio" />
         </label>
         <button class="primary-button" id="loginButton" type="button">Entra</button>
         <p class="status-line" id="loginStatus"></p>
@@ -28,8 +28,8 @@
 
       <header class="topbar">
         <div>
-          <p class="eyebrow">Scheda Andrea</p>
-          <h1>Allenamenti</h1>
+          <p class="eyebrow" id="appName">Scheda Andrea</p>
+          <h1 id="pageTitle">Allenamenti</h1>
           <p class="profile-line" id="activeProfile"></p>
         </div>
         <div class="top-actions">
@@ -80,7 +80,7 @@
         <div class="import-grid fallback-import">
           <label class="file-picker" for="fileInput">
             <span>File testo</span>
-            <input id="fileInput" type="file" accept=".txt,text/plain" />
+            <input id="fileInput" type="file" accept=".txt,text/plain,.pdf,application/pdf" />
           </label>
           <button class="secondary-button" id="manualPlan" type="button">Crea vuota</button>
         </div>
@@ -154,11 +154,11 @@
         <section class="calendar-panel" aria-label="Calendario palestra">
           <div class="calendar-head">
             <button class="secondary-button compact" id="prevCalendarWeek" type="button">Indietro</button>
-            <strong id="calendarTitle">Settimana</strong>
+            <strong id="calendarTitle">Mese</strong>
             <button class="secondary-button compact" id="nextCalendarWeek" type="button">Avanti</button>
           </div>
           <div id="calendarStrip" class="calendar-strip"></div>
-          <p class="calendar-help">Tocca una data: vuoto = non segnato, P = programmato, F = fatto.</p>
+          <p class="calendar-help">Tocca una data: vuoto = non segnato, P = programmato, F = fatto. Se c'e un allenamento salvato, lo riapre.</p>
         </section>
 
         <div id="workoutSummary" class="workout-summary hidden"></div>
@@ -194,7 +194,27 @@
           <h2>Statistiche</h2>
           <p>Riepilogo automatico dei tuoi allenamenti salvati.</p>
         </div>
+        <div class="stats-tools">
+          <button class="secondary-button" id="exportBackup" type="button">Esporta dati</button>
+          <button class="secondary-button" id="printReport" type="button">Report PDF</button>
+          <label class="file-picker backup-picker" for="backupFileInput">
+            <span>Importa dati</span>
+            <input id="backupFileInput" type="file" accept="application/json,.json" />
+          </label>
+        </div>
+        <div class="body-metrics-form">
+          <label>
+            <span>Peso corpo kg</span>
+            <input id="bodyWeight" type="number" min="0" step="0.1" placeholder="kg" />
+          </label>
+          <label>
+            <span>Misure corpo</span>
+            <input id="bodyMeasures" type="text" placeholder="vita 80, braccio 36..." />
+          </label>
+          <button class="primary-button" id="saveBodyMetrics" type="button">Salva peso e misure</button>
+        </div>
         <div class="metric-grid" id="statsList"></div>
+        <div class="session-history" id="sessionHistory"></div>
       </section>
 
       <section class="panel hidden" id="bodyMapSection">

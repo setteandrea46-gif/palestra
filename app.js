@@ -9,11 +9,14 @@ const state = {
   activeView: "workouts",
   parsedWorkouts: [],
   program: null,
+  archivedPrograms: [],
   selectedWorkout: 0,
   selectedPreviewWorkout: 0,
   selectedImages: [],
   diet: { goal: "", notes: "" },
   progressPhotos: [],
+  bodyMetrics: [],
+  sessions: [],
   calendar: {},
   selectedCalendarStart: null,
   completedExercises: {},
@@ -29,6 +32,8 @@ const els = {
   loginButton: document.querySelector("#loginButton"),
   loginStatus: document.querySelector("#loginStatus"),
   activeProfile: document.querySelector("#activeProfile"),
+  appName: document.querySelector("#appName"),
+  pageTitle: document.querySelector("#pageTitle"),
   logoutApp: document.querySelector("#logoutApp"),
   featureNav: document.querySelector("#featureNav"),
   resetApp: document.querySelector("#resetApp"),
@@ -75,6 +80,13 @@ const els = {
   saveDiet: document.querySelector("#saveDiet"),
   improvementsList: document.querySelector("#improvementsList"),
   statsList: document.querySelector("#statsList"),
+  sessionHistory: document.querySelector("#sessionHistory"),
+  exportBackup: document.querySelector("#exportBackup"),
+  printReport: document.querySelector("#printReport"),
+  backupFileInput: document.querySelector("#backupFileInput"),
+  bodyWeight: document.querySelector("#bodyWeight"),
+  bodyMeasures: document.querySelector("#bodyMeasures"),
+  saveBodyMetrics: document.querySelector("#saveBodyMetrics"),
   bodyMapList: document.querySelector("#bodyMapList"),
   progressPhotoInput: document.querySelector("#progressPhotoInput"),
   progressPhotoGrid: document.querySelector("#progressPhotoGrid"),
@@ -121,6 +133,12 @@ function loginProfile() {
     return;
   }
 
+  if (!pin) {
+    els.loginStatus.textContent = "Inserisci un PIN per proteggere questo profilo.";
+    els.profilePin.focus();
+    return;
+  }
+
   const id = profileIdFromName(name);
   const profiles = readProfiles();
   const existing = profiles[id];
@@ -150,6 +168,7 @@ function logoutProfile() {
   localStorage.removeItem(ACTIVE_PROFILE_KEY);
   state.activeProfile = null;
   state.program = null;
+  state.archivedPrograms = [];
   state.parsedWorkouts = [];
   state.selectedWorkout = 0;
   state.selectedPreviewWorkout = 0;
@@ -192,6 +211,25 @@ function formatShortDay(dateISO) {
     weekday: "short",
     day: "2-digit",
   }).format(dateFromISO(dateISO));
+}
+
+function formatMonth(dateISO) {
+  return new Intl.DateTimeFormat("it-IT", {
+    month: "long",
+    year: "numeric",
+  }).format(dateFromISO(dateISO));
+}
+
+function monthStartISO(dateISO) {
+  const date = dateFromISO(dateISO);
+  date.setDate(1);
+  return date.toISOString().slice(0, 10);
+}
+
+function addMonthsISO(dateISO, months) {
+  const date = dateFromISO(dateISO);
+  date.setMonth(date.getMonth() + months, 1);
+  return date.toISOString().slice(0, 10);
 }
 
 function parseRestSeconds(rest) {
@@ -274,9 +312,12 @@ function saveState() {
     profileKey(STORAGE_KEY),
     JSON.stringify({
       program: state.program,
+      archivedPrograms: state.archivedPrograms,
       selectedWorkout: state.selectedWorkout,
       diet: state.diet,
       progressPhotos: state.progressPhotos,
+      bodyMetrics: state.bodyMetrics,
+      sessions: state.sessions,
       calendar: state.calendar,
       completedExercises: state.completedExercises,
       selectedCalendarStart: state.selectedCalendarStart,
@@ -302,14 +343,17 @@ function clearDraft() {
 
 function hydrateProfileState() {
   state.program = null;
+  state.archivedPrograms = [];
   state.parsedWorkouts = [];
   state.selectedWorkout = 0;
   state.selectedPreviewWorkout = 0;
   state.diet = { goal: "", notes: "" };
   state.progressPhotos = [];
+  state.bodyMetrics = [];
+  state.sessions = [];
   state.calendar = {};
   state.completedExercises = {};
-  state.selectedCalendarStart = weekStartISO(todayISO());
+  state.selectedCalendarStart = monthStartISO(todayISO());
   state.lastWorkoutSummary = null;
   state.activeView = "workouts";
 
@@ -318,13 +362,16 @@ function hydrateProfileState() {
     try {
       const saved = JSON.parse(raw);
       state.program = saved.program;
+      state.archivedPrograms = saved.archivedPrograms || [];
       state.selectedWorkout = saved.selectedWorkout ?? 0;
       state.activeView = saved.activeView || "workouts";
       state.diet = saved.diet || { goal: "", notes: "" };
       state.progressPhotos = saved.progressPhotos || [];
+      state.bodyMetrics = saved.bodyMetrics || [];
+      state.sessions = saved.sessions || [];
       state.calendar = saved.calendar || {};
       state.completedExercises = saved.completedExercises || {};
-      state.selectedCalendarStart = saved.selectedCalendarStart || weekStartISO(todayISO());
+      state.selectedCalendarStart = saved.selectedCalendarStart || monthStartISO(todayISO());
       state.lastWorkoutSummary = saved.lastWorkoutSummary || null;
       if (state.program?.workouts) {
         state.program.workouts = cloneWorkouts(state.program.workouts);
@@ -535,6 +582,15 @@ function showOnly(section) {
 
 function setActiveView(view) {
   state.activeView = view;
+  const titles = {
+    workouts: "Allenamenti",
+    diet: "Dieta",
+    improvements: "Miglioramenti",
+    stats: "Statistiche",
+    bodymap: "Mappa corpo",
+    photos: "Foto",
+  };
+  els.pageTitle.textContent = titles[view] || "Allenamenti";
   els.featureNav.querySelectorAll(".feature-card").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === view);
   });
@@ -580,6 +636,9 @@ function setActiveView(view) {
 
 function renderApp() {
   setLoggedLayout(true);
+  const profileAppName = `Scheda ${state.activeProfile.name}`;
+  document.title = profileAppName;
+  els.appName.textContent = profileAppName;
   els.activeProfile.textContent = `Profilo: ${state.activeProfile.name}`;
   els.dietGoal.value = state.diet.goal || "";
   els.dietNotes.value = state.diet.notes || "";
@@ -760,24 +819,62 @@ function nextCalendarStatus(status) {
   return "";
 }
 
+function latestSessionByDate(dateISO) {
+  return state.sessions
+    .filter((session) => session.date === dateISO)
+    .sort((a, b) => String(b.savedAt || "").localeCompare(String(a.savedAt || "")))[0];
+}
+
 function renderCalendar() {
   if (!els.calendarStrip) return;
-  const start = state.selectedCalendarStart || weekStartISO(todayISO());
+  const start = monthStartISO(state.selectedCalendarStart || todayISO());
   state.selectedCalendarStart = start;
-  els.calendarTitle.textContent = `${formatDate(start)} - ${formatDate(addDaysISO(start, 6))}`;
+  els.calendarTitle.textContent = formatMonth(start);
   els.calendarStrip.innerHTML = "";
+  els.calendarStrip.classList.add("month-grid");
 
-  for (let index = 0; index < 7; index += 1) {
-    const dateISO = addDaysISO(start, index);
+  const startDate = dateFromISO(start);
+  const firstWeekday = startDate.getDay() || 7;
+  const monthIndex = startDate.getMonth();
+  const daysInMonth = new Date(startDate.getFullYear(), monthIndex + 1, 0).getDate();
+
+  for (let index = 1; index < firstWeekday; index += 1) {
+    const spacer = document.createElement("span");
+    spacer.className = "calendar-spacer";
+    els.calendarStrip.append(spacer);
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const dateISO = `${start.slice(0, 8)}${String(day).padStart(2, "0")}`;
     const status = state.calendar[dateISO] || "";
+    const session = latestSessionByDate(dateISO);
     const button = document.createElement("button");
-    button.className = `calendar-day ${status ? `is-${status}` : ""} ${dateISO === todayISO() ? "today" : ""}`;
+    button.className = `calendar-day ${status ? `is-${status}` : ""} ${session ? "has-session" : ""} ${dateISO === todayISO() ? "today" : ""}`;
     button.type = "button";
     button.innerHTML = `
       <span>${formatShortDay(dateISO)}</span>
       <strong>${calendarStatusLabel(status) || "-"}</strong>
+      ${session ? `<small>${escapeHtml(session.workoutTitle)}</small>` : ""}
     `;
     button.addEventListener("click", () => {
+      const savedSession = latestSessionByDate(dateISO);
+      if (savedSession) {
+        const workoutIndex = state.program.workouts.findIndex((workout) => workout.id === savedSession.workoutId);
+        if (workoutIndex >= 0) {
+          state.selectedWorkout = workoutIndex;
+          state.lastWorkoutSummary = {
+            date: savedSession.date,
+            title: savedSession.workoutTitle,
+            savedCount: savedSession.exercises.length,
+            skippedCount: savedSession.skippedCount || 0,
+            bestExercise: savedSession.bestExercise || null,
+          };
+          saveState();
+          renderWorkouts();
+          return;
+        }
+      }
+
       const next = nextCalendarStatus(state.calendar[dateISO]);
       if (next) {
         state.calendar[dateISO] = next;
@@ -836,6 +933,7 @@ function saveExerciseSession(exercise, weights) {
       weights: cleanWeights.map((weight) => Number(weight.toFixed(2))),
       weight: Number(Math.max(...cleanWeights).toFixed(2)),
       sets: exercise.sets || "",
+      completedSets: cleanWeights.length,
       reps: exercise.reps || "",
     },
   ];
@@ -889,7 +987,7 @@ function renderHistory(exercise) {
     .reverse()
     .forEach((entry) => {
       const item = document.createElement("li");
-      item.textContent = `${formatDate(entry.date)} - ${entryWeightsLabel(entry)}`;
+      item.textContent = `${formatDate(entry.date)} - ${entryWeightsLabel(entry)}${entry.completedSets ? ` - ${entry.completedSets} serie` : ""}`;
       list.append(item);
     });
 
@@ -917,6 +1015,7 @@ function startExerciseTimer(exerciseId, seconds) {
     state.activeTimer.remaining -= 1;
 
     if (state.activeTimer.remaining <= 0) {
+      if (navigator.vibrate) navigator.vibrate([220, 90, 220]);
       stopExerciseTimer();
     }
 
@@ -1032,7 +1131,7 @@ function renderImprovementCard(row) {
   const detailRows = row.entries
     .slice()
     .reverse()
-    .map((entry) => `<li>${formatDate(entry.date)} - ${entryWeightsLabel(entry)}${entry.reps ? ` - ${entry.reps} rip.` : ""}</li>`)
+    .map((entry) => `<li>${formatDate(entry.date)} - ${entryWeightsLabel(entry)}${entry.completedSets ? ` - ${entry.completedSets} serie` : ""}${entry.reps ? ` - ${entry.reps} rip.` : ""}</li>`)
     .join("");
   card.innerHTML = `
     <button class="improvement-head" type="button">
@@ -1151,6 +1250,29 @@ function buildWorkoutSummary(workout, savedCount, skippedCount, savedExercises) 
   };
 }
 
+function createSessionRecord(workout, savedExercises, skippedCount) {
+  return {
+    id: uid("session"),
+    date: todayISO(),
+    savedAt: new Date().toISOString(),
+    workoutId: workout.id,
+    workoutTitle: workout.title || "Allenamento",
+    skippedCount,
+    bestExercise: buildWorkoutSummary(workout, savedExercises.length, skippedCount, savedExercises).bestExercise,
+    exercises: savedExercises.map((exercise) => {
+      const latest = getExerciseHistory(exercise.id).at(-1);
+      return {
+        exerciseId: exercise.id,
+        name: exercise.name || "Esercizio",
+        muscle: detectMuscle(exercise),
+        sets: latest?.sets || exercise.sets || "",
+        reps: latest?.reps || exercise.reps || "",
+        weights: latest?.weights || [],
+      };
+    }),
+  };
+}
+
 function renderWorkoutSummary() {
   if (!state.lastWorkoutSummary) {
     els.workoutSummary.classList.add("hidden");
@@ -1172,6 +1294,7 @@ function renderWorkoutSummary() {
 
 function renderStats() {
   els.statsList.innerHTML = "";
+  els.sessionHistory.innerHTML = "";
   const entries = historyEntries();
   const exercises = allExercises();
   const rows = improvementRows();
@@ -1183,10 +1306,52 @@ function renderStats() {
     .at(-1);
 
   els.statsList.append(metricCard("Esercizi", exercises.length, "nella scheda salvata"));
+  els.statsList.append(metricCard("Schede archiviate", state.archivedPrograms.length, "programmi precedenti salvati"));
   els.statsList.append(metricCard("Carichi salvati", entries.length, "sessioni registrate"));
   els.statsList.append(metricCard("Incremento totale", `+${Number(totalGain.toFixed(1))} kg`, "somma dei migliori aumenti"));
   els.statsList.append(metricCard("Migliore esercizio", best ? best.name : "-", best ? `+${best.gain} kg` : "Aggiungi carichi"));
   els.statsList.append(metricCard("Ultimo allenamento", lastDate ? formatDate(lastDate) : "-", "ultima data registrata"));
+
+  const muscleCounts = new Map();
+  state.sessions.flatMap((session) => session.exercises || []).forEach((exercise) => {
+    muscleCounts.set(exercise.muscle || "Altro", (muscleCounts.get(exercise.muscle || "Altro") || 0) + 1);
+  });
+  const topMuscle = [...muscleCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+  els.statsList.append(metricCard("Gruppo piu allenato", topMuscle ? topMuscle[0] : "-", topMuscle ? `${topMuscle[1]} esercizi salvati` : "Salva allenamenti"));
+
+  const latestMetric = state.bodyMetrics[0];
+  els.statsList.append(metricCard("Peso corpo", latestMetric?.weight ? `${latestMetric.weight} kg` : "-", latestMetric ? formatDate(latestMetric.date) : "Aggiungi peso"));
+  els.statsList.append(metricCard("Misure", latestMetric?.measures || "-", latestMetric ? formatDate(latestMetric.date) : "Aggiungi misure"));
+
+  if (state.bodyMetrics.length) {
+    const metricsCard = document.createElement("article");
+    metricsCard.className = "session-card";
+    metricsCard.innerHTML = `
+      <h3>Peso e misure</h3>
+      <ol>
+        ${state.bodyMetrics
+          .slice(0, 8)
+          .map((metric) => `<li>${formatDate(metric.date)} - ${metric.weight ? `${metric.weight} kg` : "peso n/d"}${metric.measures ? ` - ${escapeHtml(metric.measures)}` : ""}</li>`)
+          .join("")}
+      </ol>
+    `;
+    els.sessionHistory.append(metricsCard);
+  }
+
+  if (state.sessions.length) {
+    const historyCard = document.createElement("article");
+    historyCard.className = "session-card";
+    historyCard.innerHTML = `
+      <h3>Cronologia allenamenti</h3>
+      <ol>
+        ${state.sessions
+          .slice(0, 12)
+          .map((session) => `<li>${formatDate(session.date)} - ${escapeHtml(session.workoutTitle)} - ${session.exercises.length} esercizi salvati</li>`)
+          .join("")}
+      </ol>
+    `;
+    els.sessionHistory.append(historyCard);
+  }
 }
 
 function renderProgressPhotos() {
@@ -1223,6 +1388,125 @@ function fileToDataUrl(file) {
     reader.addEventListener("error", reject);
     reader.readAsDataURL(file);
   });
+}
+
+function downloadTextFile(filename, text, type = "application/json") {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function currentBackupData() {
+  return {
+    exportedAt: new Date().toISOString(),
+    profile: state.activeProfile,
+    data: {
+      program: state.program,
+      archivedPrograms: state.archivedPrograms,
+      selectedWorkout: state.selectedWorkout,
+      diet: state.diet,
+      progressPhotos: state.progressPhotos,
+      bodyMetrics: state.bodyMetrics,
+      sessions: state.sessions,
+      calendar: state.calendar,
+      completedExercises: state.completedExercises,
+      selectedCalendarStart: state.selectedCalendarStart,
+      activeView: state.activeView,
+      lastWorkoutSummary: state.lastWorkoutSummary,
+    },
+  };
+}
+
+function applyBackupData(backup) {
+  const data = backup?.data || backup;
+  if (!data || typeof data !== "object") throw new Error("Backup non valido");
+  state.program = data.program || null;
+  state.archivedPrograms = data.archivedPrograms || [];
+  if (state.program?.workouts) {
+    state.program.workouts = cloneWorkouts(state.program.workouts);
+    state.program.history = state.program.history || {};
+  }
+  state.selectedWorkout = data.selectedWorkout ?? 0;
+  state.diet = data.diet || { goal: "", notes: "" };
+  state.progressPhotos = data.progressPhotos || [];
+  state.bodyMetrics = data.bodyMetrics || [];
+  state.sessions = data.sessions || [];
+  state.calendar = data.calendar || {};
+  state.completedExercises = data.completedExercises || {};
+  state.selectedCalendarStart = data.selectedCalendarStart || monthStartISO(todayISO());
+  state.activeView = data.activeView || "workouts";
+  state.lastWorkoutSummary = data.lastWorkoutSummary || null;
+  saveState();
+  renderApp();
+}
+
+function reportHtml() {
+  const rows = improvementRows();
+  const metrics = state.bodyMetrics || [];
+  const sessions = state.sessions || [];
+  return `
+    <!doctype html>
+    <html lang="it">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Report progressi ${escapeHtml(state.activeProfile?.name || "")}</title>
+        <style>
+          body { font-family: Arial, sans-serif; color: #111827; margin: 28px; }
+          h1, h2 { margin-bottom: 8px; }
+          section { margin: 22px 0; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+          th { background: #f3f4f6; }
+          li { margin-bottom: 6px; }
+        </style>
+      </head>
+      <body>
+        <h1>Report progressi - ${escapeHtml(state.activeProfile?.name || "Profilo")}</h1>
+        <p>Generato il ${formatDate(todayISO())}</p>
+        <section>
+          <h2>Miglioramenti esercizi</h2>
+          <table>
+            <thead><tr><th>Esercizio</th><th>Primo</th><th>Ultimo</th><th>Best</th><th>Progresso</th><th>Sessioni</th></tr></thead>
+            <tbody>
+              ${
+                rows.length
+                  ? rows
+                      .map((row) => `<tr><td>${escapeHtml(row.name)}</td><td>${row.first} kg</td><td>${row.latest} kg</td><td>${row.best} kg</td><td>${row.gain >= 0 ? "+" : ""}${row.gain} kg / ${row.percent >= 0 ? "+" : ""}${row.percent}%</td><td>${row.sessions}</td></tr>`)
+                      .join("")
+                  : '<tr><td colspan="6">Nessun miglioramento salvato</td></tr>'
+              }
+            </tbody>
+          </table>
+        </section>
+        <section>
+          <h2>Peso e misure</h2>
+          <ol>${metrics.length ? metrics.map((metric) => `<li>${formatDate(metric.date)} - ${metric.weight || "-"} kg - ${escapeHtml(metric.measures || "")}</li>`).join("") : "<li>Nessun dato salvato</li>"}</ol>
+        </section>
+        <section>
+          <h2>Cronologia allenamenti</h2>
+          <ol>${sessions.length ? sessions.map((session) => `<li>${formatDate(session.date)} - ${escapeHtml(session.workoutTitle)} - ${session.exercises.length} esercizi</li>`).join("") : "<li>Nessun allenamento salvato</li>"}</ol>
+        </section>
+      </body>
+    </html>
+  `;
+}
+
+function printProgressReport() {
+  const reportWindow = window.open("", "_blank");
+  if (!reportWindow) {
+    alert("Il browser ha bloccato il report. Permetti i popup per questa pagina.");
+    return;
+  }
+  reportWindow.document.write(reportHtml());
+  reportWindow.document.close();
+  reportWindow.focus();
+  reportWindow.print();
 }
 
 function updateExercise(exerciseId, patch) {
@@ -1405,13 +1689,17 @@ function renderWorkoutFooter(workoutIndex) {
       }
     });
 
+    const skippedCount = Math.max(0, workout.exercises.length - savedExercises.length);
     state.calendar[todayISO()] = "done";
     state.lastWorkoutSummary = buildWorkoutSummary(
       workout,
       savedExercises.length,
-      Math.max(0, workout.exercises.length - savedExercises.length),
+      skippedCount,
       savedExercises,
     );
+    if (savedExercises.length) {
+      state.sessions.unshift(createSessionRecord(workout, savedExercises, skippedCount));
+    }
     resetWorkoutSession(workout);
     saveState();
     renderWorkouts();
@@ -1578,6 +1866,11 @@ async function readImagesWithOcr({ openPreview = true } = {}) {
 els.fileInput.addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
+  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+    els.ocrStatus.textContent = "Import PDF diretto non ancora attivo: per ora carica screenshot/foto del PDF o copia il testo.";
+    event.target.value = "";
+    return;
+  }
   els.planText.value = await file.text();
   preparePreviewFromText();
 });
@@ -1623,6 +1916,45 @@ els.saveDiet.addEventListener("click", () => {
   saveState();
 });
 
+els.saveBodyMetrics.addEventListener("click", () => {
+  const weight = Number(els.bodyWeight.value);
+  const measures = els.bodyMeasures.value.trim();
+  if (!Number.isFinite(weight) && !measures) {
+    els.bodyWeight.focus();
+    return;
+  }
+
+  state.bodyMetrics.unshift({
+    id: uid("metric"),
+    date: todayISO(),
+    weight: Number.isFinite(weight) && weight > 0 ? Number(weight.toFixed(1)) : "",
+    measures,
+  });
+  els.bodyWeight.value = "";
+  els.bodyMeasures.value = "";
+  saveState();
+  renderStats();
+});
+
+els.exportBackup.addEventListener("click", () => {
+  const profileName = normalizeExerciseName(state.activeProfile?.name || "profilo");
+  downloadTextFile(`scheda-${profileName}-backup.json`, JSON.stringify(currentBackupData(), null, 2));
+});
+
+els.printReport.addEventListener("click", printProgressReport);
+
+els.backupFileInput.addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    applyBackupData(JSON.parse(await file.text()));
+  } catch {
+    alert("Backup non valido. Carica un file JSON esportato da questa app.");
+  } finally {
+    event.target.value = "";
+  }
+});
+
 els.progressPhotoInput.addEventListener("change", async (event) => {
   const files = [...(event.target.files || [])];
   if (!files.length) return;
@@ -1642,13 +1974,13 @@ els.progressPhotoInput.addEventListener("change", async (event) => {
 });
 
 els.prevCalendarWeek.addEventListener("click", () => {
-  state.selectedCalendarStart = addDaysISO(state.selectedCalendarStart || weekStartISO(todayISO()), -7);
+  state.selectedCalendarStart = addMonthsISO(state.selectedCalendarStart || monthStartISO(todayISO()), -1);
   saveState();
   renderCalendar();
 });
 
 els.nextCalendarWeek.addEventListener("click", () => {
-  state.selectedCalendarStart = addDaysISO(state.selectedCalendarStart || weekStartISO(todayISO()), 7);
+  state.selectedCalendarStart = addMonthsISO(state.selectedCalendarStart || monthStartISO(todayISO()), 1);
   saveState();
   renderCalendar();
 });
@@ -1672,6 +2004,13 @@ els.datesMode.addEventListener("click", () => setDurationMode("dates"));
 els.weeksMode.addEventListener("click", () => setDurationMode("weeks"));
 
 els.saveProgram.addEventListener("click", () => {
+  if (state.program) {
+    state.archivedPrograms.unshift({
+      ...state.program,
+      archivedAt: new Date().toISOString(),
+    });
+  }
+
   state.program = {
     createdAt: new Date().toISOString(),
     duration: buildProgramDuration(),
@@ -1698,10 +2037,16 @@ els.resetApp.addEventListener("click", () => {
   localStorage.removeItem(profileKey(DRAFT_KEY));
   clearDraft();
   state.program = null;
+  state.archivedPrograms = [];
   state.parsedWorkouts = [];
   state.selectedWorkout = 0;
   state.diet = { goal: "", notes: "" };
   state.progressPhotos = [];
+  state.bodyMetrics = [];
+  state.sessions = [];
+  state.calendar = {};
+  state.completedExercises = {};
+  state.lastWorkoutSummary = null;
   els.planText.value = "";
   state.activeView = "workouts";
   setActiveView("workouts");

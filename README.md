@@ -8,6 +8,8 @@ Web app mobile-first per importare una scheda di allenamento in formato testo, s
 - Import automatico da immagini/foto/screenshot con OCR nel browser
 - Da telefono puoi scegliere una foto dalla galleria o scattarne una nuova
 - Accesso iniziale con profili locali separati sullo stesso dispositivo
+- PIN obbligatorio per ogni profilo: se il PIN e sbagliato non entra
+- Nome app dinamico in base al nome del profilo
 - Banner cliccabili per Allenamenti, Dieta, Miglioramenti, Statistiche, Mappa corpo e Foto
 - Parser per giorni di allenamento come `Allenamento 1`, `Workout 1`, `Giorno A`, `Day 1`
 - Anteprima divisa per giorni, modificabile prima del salvataggio
@@ -15,7 +17,8 @@ Web app mobile-first per importare una scheda di allenamento in formato testo, s
 - Selezione durata tramite date o numero di settimane
 - Vista verticale con tab per workout
 - Vista a box verticali: si apre solo l'allenamento selezionato
-- Calendario settimanale cliccabile per segnare giorni programmati o fatti
+- Calendario mensile cliccabile con mesi precedenti e successivi
+- Clic su un giorno gia allenato per riaprire l'allenamento fatto quel giorno
 - Timer recupero su ogni esercizio, calcolato dai secondi scritti nella scheda
 - Pulsante V su ogni esercizio per segnare cosa hai completato oggi
 - Pesi per singola serie con tasto Fatto, salvati nello storico e nei miglioramenti
@@ -23,6 +26,11 @@ Web app mobile-first per importare una scheda di allenamento in formato testo, s
 - Dopo l'invio ai miglioramenti l'allenamento si resetta per poterlo rifare la volta dopo
 - Il calendario segna automaticamente il giorno come fatto quando invii l'allenamento
 - Riepilogo dell'ultimo allenamento inviato, con esercizi salvati e saltati
+- Storico allenamenti completo dentro Statistiche
+- Backup JSON esportabile e importabile
+- Report progressi stampabile/salvabile in PDF
+- Peso corpo e misure salvati nel tempo
+- Archivio automatico delle vecchie schede quando salvi un nuovo programma
 - Statistiche e miglioramenti aggiornati dai carichi salvati
 - Miglioramenti con grafici a linea curva per esercizio, date, pesi e ripetizioni
 - Mappa corpo testuale per singolo allenamento, con riconoscimento automatico e modifica manuale del gruppo muscolare
