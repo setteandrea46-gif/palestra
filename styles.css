@@ -1,16 +1,18 @@
 :root {
-  --bg: #07111f;
-  --surface: #10233c;
-  --surface-2: #172f50;
-  --text: #f8fbff;
-  --muted: #a9bbd1;
-  --line: #2b4a70;
-  --accent: #a3e635;
-  --accent-strong: #84cc16;
-  --accent-ink: #172100;
-  --info: #38bdf8;
+  --bg: #07080d;
+  --surface: #111827;
+  --surface-2: #182235;
+  --surface-3: #202c42;
+  --text: #f9fafb;
+  --muted: #9ca8ba;
+  --line: #2f3b52;
+  --accent: #22d3ee;
+  --accent-strong: #06b6d4;
+  --accent-ink: #031519;
+  --info: #a78bfa;
   --danger: #fb7185;
-  --focus: #fbbf24;
+  --success: #34d399;
+  --focus: #f59e0b;
   color-scheme: dark;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -24,7 +26,9 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    linear-gradient(180deg, rgba(56, 189, 248, 0.12), transparent 260px),
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.24), transparent 300px),
+    radial-gradient(circle at top right, rgba(167, 139, 250, 0.18), transparent 260px),
+    linear-gradient(180deg, #07080d 0%, #0b1020 46%, #07080d 100%),
     var(--bg);
   color: var(--text);
 }
@@ -992,6 +996,216 @@ button:focus-visible {
   border: 1px dashed var(--line);
   border-radius: 8px;
   text-align: center;
+}
+
+/* Modern UI refresh */
+.app-shell {
+  padding-inline: 12px;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: 0 -12px 14px;
+  padding: 14px 12px 12px;
+  background: linear-gradient(180deg, rgba(7, 8, 13, 0.96), rgba(7, 8, 13, 0.72));
+  backdrop-filter: blur(14px);
+}
+
+.eyebrow {
+  color: var(--accent);
+}
+
+h1 {
+  font-size: 2.15rem;
+  letter-spacing: 0;
+}
+
+.panel,
+.preview-day,
+.workout-box,
+.calendar-panel,
+.workout-tools,
+.metric-card,
+.progress-photo-card,
+.exercise-card {
+  border-color: rgba(148, 163, 184, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
+    rgba(17, 24, 39, 0.94);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+}
+
+.feature-nav {
+  gap: 9px;
+}
+
+.feature-card {
+  min-height: 78px;
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(17, 24, 39, 0.88);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.feature-card span {
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--accent);
+}
+
+.feature-card.active {
+  border-color: rgba(34, 211, 238, 0.7);
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.22), rgba(167, 139, 250, 0.1));
+}
+
+textarea,
+input {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(3, 7, 18, 0.78);
+}
+
+textarea:focus,
+input:focus,
+button:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2);
+}
+
+.primary-button,
+.save-weight,
+.segment.active {
+  background: linear-gradient(135deg, var(--accent), var(--info));
+  color: #020617;
+}
+
+.secondary-button,
+.icon-button,
+.segment,
+.file-picker {
+  border-color: rgba(148, 163, 184, 0.2);
+  background: rgba(30, 41, 59, 0.86);
+}
+
+.photo-picker {
+  border-color: rgba(34, 211, 238, 0.5);
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(167, 139, 250, 0.14)),
+    rgba(17, 24, 39, 0.9);
+}
+
+.preview-exercise,
+.history-chart,
+.calendar-day,
+.set-weight-grid input,
+.exercise-card input {
+  border-color: rgba(148, 163, 184, 0.2);
+  background: rgba(3, 7, 18, 0.74);
+}
+
+.open-day {
+  border-color: rgba(34, 211, 238, 0.52);
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--accent);
+}
+
+.remove-day,
+.remove-mini,
+.danger-button {
+  border-color: rgba(251, 113, 133, 0.38);
+  background: rgba(251, 113, 133, 0.1);
+  color: var(--danger);
+}
+
+.workout-box.active {
+  border-color: rgba(34, 211, 238, 0.62);
+}
+
+.workout-box-header {
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(167, 139, 250, 0.12)),
+    rgba(24, 34, 53, 0.92);
+}
+
+.workout-box.active .workout-box-header {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.24), rgba(52, 211, 153, 0.12));
+}
+
+.workout-squares i {
+  border-color: rgba(148, 163, 184, 0.26);
+  background: rgba(3, 7, 18, 0.72);
+}
+
+.workout-squares i.done,
+.done-button.done {
+  border-color: rgba(52, 211, 153, 0.75);
+  background: linear-gradient(135deg, var(--success), var(--accent));
+  color: #020617;
+}
+
+.exercise-card {
+  border-color: rgba(34, 211, 238, 0.18);
+}
+
+.exercise-header {
+  grid-template-columns: 44px 1fr 64px;
+}
+
+.done-button {
+  min-width: 44px;
+  min-height: 44px;
+  border-color: rgba(148, 163, 184, 0.24);
+  background: rgba(3, 7, 18, 0.72);
+}
+
+.timer-stopwatch {
+  border-color: var(--accent);
+}
+
+.timer-stopwatch::before,
+.timer-stopwatch::after {
+  background: var(--accent);
+}
+
+.timer-play,
+.timer-reset {
+  color: var(--accent);
+}
+
+.timer-play::before {
+  border-left-color: var(--accent);
+}
+
+.timer-play.running::before {
+  border-left-color: var(--focus);
+}
+
+.timer-reset::before {
+  color: var(--accent);
+}
+
+.save-weight::before {
+  background: #020617;
+}
+
+.history summary {
+  color: var(--accent);
+}
+
+.bar {
+  background: linear-gradient(180deg, var(--accent), var(--info));
+}
+
+.calendar-day.today {
+  border-color: var(--accent);
+}
+
+.calendar-day.is-planned {
+  background: rgba(167, 139, 250, 0.18);
+}
+
+.calendar-day.is-done {
+  border-color: rgba(52, 211, 153, 0.68);
+  background: rgba(52, 211, 153, 0.18);
 }
 
 @media (min-width: 480px) {
