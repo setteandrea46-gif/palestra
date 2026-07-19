@@ -568,12 +568,17 @@ button:focus-visible {
 }
 
 .workout-footer {
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  gap: 10px;
+  justify-items: end;
 }
 
 .workout-footer button {
   width: min(210px, 100%);
+}
+
+.workout-footer .send-workout {
+  width: 100%;
 }
 
 .danger-button {
@@ -698,12 +703,24 @@ button:focus-visible {
 }
 
 .save-weight {
+  display: inline-flex;
   min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: 0;
   border-radius: 8px;
   background: var(--accent);
   color: var(--accent-ink);
   font-weight: 900;
+}
+
+.save-weight::before {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent-ink);
+  content: "";
 }
 
 .last-weight {

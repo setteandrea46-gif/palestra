@@ -258,6 +258,8 @@ function cloneWorkouts(workouts) {
       sets: exercise.sets || "",
       reps: exercise.reps || "",
       rest: exercise.rest || "",
+      sessionWeights: Array.isArray(exercise.sessionWeights) ? exercise.sessionWeights : [],
+      done: Boolean(exercise.done),
     })),
   }));
 }
@@ -578,6 +580,10 @@ function updatePreviewModelFromInputs() {
       sets: row.querySelector("[data-field='sets']").value.trim(),
       reps: row.querySelector("[data-field='reps']").value.trim(),
       rest: row.querySelector("[data-field='rest']").value.trim(),
+      sessionWeights: [...row.querySelectorAll(".preview-set-weight-input")]
+        .map((input) => Number(input.value))
+        .filter((weight) => Number.isFinite(weight) && weight > 0),
+      done: row.classList.contains("is-done"),
     }));
 
     return {
@@ -798,6 +804,28 @@ function entryWeightsLabel(entry) {
   return weights.length ? weights.map((weight) => `${weight} kg`).join(" / ") : "senza peso";
 }
 
+function normaliseWeights(weights) {
+  return weights.map(Number).filter((weight) => Number.isFinite(weight) && weight > 0);
+}
+
+function saveExerciseSession(exercise, weights) {
+  const cleanWeights = normaliseWeights(weights);
+  if (!cleanWeights.length) return false;
+
+  const key = completionKey(exercise.id);
+  state.completedExercises[key] = { date: todayISO(), exerciseId: exercise.id };
+  state.program.history[exercise.id] = [
+    ...getExerciseHistory(exercise.id),
+    {
+      date: todayISO(),
+      weights: cleanWeights.map((weight) => Number(weight.toFixed(2))),
+      weight: Number(Math.max(...cleanWeights).toFixed(2)),
+    },
+  ];
+  exercise.sessionWeights = [];
+  return true;
+}
+
 function latestWeightLabel(exerciseId) {
   const history = getExerciseHistory(exerciseId);
   if (!history.length) return "Nessun peso salvato";
@@ -1005,11 +1033,11 @@ function renderExerciseCard(exercise) {
   const isDone = Boolean(state.completedExercises[completionKey(exercise.id)]);
   const timerActive = state.activeTimer?.exerciseId === exercise.id;
   const timerLabel = timerActive ? formatTimer(Math.max(0, state.activeTimer.remaining)) : formatTimer(restSeconds);
-  const latestWeights = entryWeights(getExerciseHistory(exercise.id).at(-1) || {});
+  const currentWeights = Array.isArray(exercise.sessionWeights) ? exercise.sessionWeights : [];
   const setWeightInputs = Array.from({ length: setCount }, (_, index) => `
     <label>
       <span>Serie ${index + 1}</span>
-      <input class="set-weight-input" inputmode="decimal" type="number" min="0" step="0.5" value="${escapeHtml(latestWeights[index] || "")}" placeholder="kg" />
+      <input class="set-weight-input" inputmode="decimal" type="number" min="0" step="0.5" value="${escapeHtml(currentWeights[index] || "")}" placeholder="kg" />
     </label>
   `).join("");
 
@@ -1079,6 +1107,11 @@ function renderExerciseCard(exercise) {
   card.querySelector(".reps-input").addEventListener("change", (event) => updateExercise(exercise.id, { reps: event.target.value.trim() }));
   card.querySelector(".rest-input").addEventListener("change", (event) => updateExercise(exercise.id, { rest: event.target.value.trim() }));
 
+  card.querySelector(".set-weight-grid").addEventListener("input", () => {
+    exercise.sessionWeights = [...card.querySelectorAll(".set-weight-input")].map((input) => input.value.trim());
+    saveState();
+  });
+
   card.querySelector(".remove-exercise-live").addEventListener("click", () => {
     const workout = state.program.workouts[state.selectedWorkout];
     workout.exercises = workout.exercises.filter((item) => item.id !== exercise.id);
@@ -1088,22 +1121,12 @@ function renderExerciseCard(exercise) {
 
   card.querySelector(".save-weight").addEventListener("click", () => {
     const inputs = [...card.querySelectorAll(".set-weight-input")];
-    const weights = inputs.map((input) => Number(input.value)).filter((weight) => Number.isFinite(weight) && weight > 0);
-    if (!weights.length) {
+    const weights = inputs.map((input) => input.value);
+    if (!saveExerciseSession(exercise, weights)) {
       inputs[0]?.focus();
       return;
     }
 
-    const key = completionKey(exercise.id);
-    state.completedExercises[key] = { date: todayISO(), exerciseId: exercise.id };
-    state.program.history[exercise.id] = [
-      ...getExerciseHistory(exercise.id),
-      {
-        date: todayISO(),
-        weights: weights.map((weight) => Number(weight.toFixed(2))),
-        weight: Number(Math.max(...weights).toFixed(2)),
-      },
-    ];
     saveState();
     renderWorkouts();
   });
@@ -1158,11 +1181,26 @@ function renderWorkoutTools(workout, workoutIndex) {
 }
 
 function renderWorkoutFooter(workoutIndex) {
+  const workout = state.program.workouts[workoutIndex];
   const footer = document.createElement("div");
   footer.className = "workout-footer";
-  footer.innerHTML = '<button class="secondary-button danger-button" type="button">Togli allenamento</button>';
+  footer.innerHTML = `
+    <button class="primary-button send-workout" type="button">Manda a miglioramenti</button>
+    <button class="secondary-button danger-button" type="button">Togli allenamento</button>
+  `;
 
-  footer.querySelector("button").addEventListener("click", () => {
+  footer.querySelector(".send-workout").addEventListener("click", () => {
+    const savedCount = workout.exercises.reduce((count, exercise) => {
+      return saveExerciseSession(exercise, exercise.sessionWeights || []) ? count + 1 : count;
+    }, 0);
+
+    if (!savedCount) return;
+    saveState();
+    renderWorkouts();
+    renderImprovements();
+  });
+
+  footer.querySelector(".danger-button").addEventListener("click", () => {
     if (state.program.workouts.length === 1) return;
     state.program.workouts.splice(workoutIndex, 1);
     state.selectedWorkout = state.program.workouts.length ? Math.min(workoutIndex, state.program.workouts.length - 1) : null;

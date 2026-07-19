@@ -19,6 +19,7 @@ Web app mobile-first per importare una scheda di allenamento in formato testo, s
 - Timer recupero su ogni esercizio, calcolato dai secondi scritti nella scheda
 - Pulsante V su ogni esercizio per segnare cosa hai completato oggi
 - Pesi per singola serie con tasto Fatto, salvati nello storico e nei miglioramenti
+- Invio dell'intero allenamento ai miglioramenti anche se alcuni esercizi sono stati saltati
 - Statistiche e miglioramenti aggiornati dai carichi salvati
 - Foto progressi salvate nel profilo locale
 - Campi modificabili per nome esercizio, serie, ripetizioni, recupero e carico
