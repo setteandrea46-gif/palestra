@@ -58,6 +58,7 @@ button {
 .auth-locked #dietSection,
 .auth-locked #improvementsSection,
 .auth-locked #statsSection,
+.auth-locked #bodyMapSection,
 .auth-locked #photosSection {
   display: none !important;
 }
@@ -93,7 +94,7 @@ button {
 
 .feature-nav {
   display: grid;
-  grid-template-columns: repeat(5, minmax(72px, 1fr));
+  grid-template-columns: repeat(6, minmax(78px, 1fr));
   gap: 8px;
   margin: 0 -14px 14px;
   padding: 0 14px 4px;
@@ -964,6 +965,195 @@ button:focus-visible {
   line-height: 1.1;
 }
 
+.workout-summary {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid rgba(34, 211, 238, 0.42);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(167, 139, 250, 0.13));
+}
+
+.workout-summary span,
+.workout-summary small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.workout-summary strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 1.05rem;
+}
+
+.workout-summary p {
+  margin: 0;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.improvement-card,
+.body-map-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.improvement-card.trend-up {
+  border-color: rgba(52, 211, 153, 0.38);
+}
+
+.improvement-card.trend-down {
+  border-color: rgba(251, 113, 133, 0.46);
+}
+
+.improvement-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  width: 100%;
+  min-height: 62px;
+  border: 0;
+  border-radius: 8px;
+  background: #07101d;
+  color: var(--text);
+  text-align: left;
+}
+
+.improvement-head span {
+  font-weight: 900;
+}
+
+.improvement-head strong {
+  color: var(--success);
+  font-size: 1.12rem;
+}
+
+.trend-down .improvement-head strong {
+  color: var(--danger);
+}
+
+.improvement-head small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.mini-line {
+  width: 100%;
+  min-height: 110px;
+  border-radius: 8px;
+  background: #07101d;
+}
+
+.mini-line path {
+  fill: none;
+  stroke: var(--success);
+  stroke-linecap: round;
+  stroke-width: 5;
+}
+
+.mini-line.down path {
+  stroke: var(--danger);
+}
+
+.mini-line circle {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.improvement-detail {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.improvement-detail p {
+  margin: 0;
+  font-weight: 800;
+}
+
+.improvement-detail ol {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.body-map-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.body-map-head h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.body-map-head small,
+.missing-muscles {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.muscle-chip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.muscle-chip-grid span {
+  padding: 10px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 8px;
+  background: #07101d;
+  color: var(--text);
+  font-weight: 850;
+}
+
+.missing-muscles {
+  margin: 0;
+}
+
+.muscle-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.muscle-row {
+  display: grid;
+  grid-template-columns: 1fr 138px;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #07101d;
+}
+
+.muscle-row span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muscle-select {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 850;
+}
+
 .progress-photo-grid {
   display: grid;
   gap: 12px;
@@ -1029,6 +1219,9 @@ h1 {
 .workout-tools,
 .metric-card,
 .progress-photo-card,
+.improvement-card,
+.body-map-card,
+.workout-summary,
 .exercise-card {
   border-color: rgba(148, 163, 184, 0.18);
   background:
@@ -1097,6 +1290,8 @@ button:focus-visible {
 .history-chart,
 .calendar-day,
 .set-weight-grid input,
+.mini-line,
+.muscle-row,
 .exercise-card input {
   border-color: rgba(148, 163, 184, 0.2);
   background: rgba(3, 7, 18, 0.74);

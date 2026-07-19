@@ -55,6 +55,10 @@
           <span>S</span>
           Statistiche
         </button>
+        <button class="feature-card" data-view="bodymap" type="button">
+          <span>C</span>
+          Mappa corpo
+        </button>
         <button class="feature-card" data-view="photos" type="button">
           <span>F</span>
           Foto
@@ -157,6 +161,7 @@
           <p class="calendar-help">Tocca una data: vuoto = non segnato, P = programmato, F = fatto.</p>
         </section>
 
+        <div id="workoutSummary" class="workout-summary hidden"></div>
         <div id="exerciseList" class="exercise-list"></div>
       </section>
 
@@ -190,6 +195,14 @@
           <p>Riepilogo automatico dei tuoi allenamenti salvati.</p>
         </div>
         <div class="metric-grid" id="statsList"></div>
+      </section>
+
+      <section class="panel hidden" id="bodyMapSection">
+        <div class="section-heading">
+          <h2>Mappa corpo</h2>
+          <p>Gruppi muscolari riconosciuti dagli esercizi del singolo allenamento.</p>
+        </div>
+        <div class="metric-grid" id="bodyMapList"></div>
       </section>
 
       <section class="panel hidden" id="photosSection">

@@ -8,7 +8,7 @@ Web app mobile-first per importare una scheda di allenamento in formato testo, s
 - Import automatico da immagini/foto/screenshot con OCR nel browser
 - Da telefono puoi scegliere una foto dalla galleria o scattarne una nuova
 - Accesso iniziale con profili locali separati sullo stesso dispositivo
-- Banner cliccabili per Allenamenti, Dieta, Miglioramenti, Statistiche e Foto
+- Banner cliccabili per Allenamenti, Dieta, Miglioramenti, Statistiche, Mappa corpo e Foto
 - Parser per giorni di allenamento come `Allenamento 1`, `Workout 1`, `Giorno A`, `Day 1`
 - Anteprima divisa per giorni, modificabile prima del salvataggio
 - Giorni ed esercizi aggiungibili o eliminabili
@@ -20,7 +20,12 @@ Web app mobile-first per importare una scheda di allenamento in formato testo, s
 - Pulsante V su ogni esercizio per segnare cosa hai completato oggi
 - Pesi per singola serie con tasto Fatto, salvati nello storico e nei miglioramenti
 - Invio dell'intero allenamento ai miglioramenti anche se alcuni esercizi sono stati saltati
+- Dopo l'invio ai miglioramenti l'allenamento si resetta per poterlo rifare la volta dopo
+- Il calendario segna automaticamente il giorno come fatto quando invii l'allenamento
+- Riepilogo dell'ultimo allenamento inviato, con esercizi salvati e saltati
 - Statistiche e miglioramenti aggiornati dai carichi salvati
+- Miglioramenti con grafici a linea curva per esercizio, date, pesi e ripetizioni
+- Mappa corpo testuale per singolo allenamento, con riconoscimento automatico e modifica manuale del gruppo muscolare
 - Foto progressi salvate nel profilo locale
 - Campi modificabili per nome esercizio, serie, ripetizioni, recupero e carico
 - Campo peso per ogni esercizio con ultimo peso usato come riferimento

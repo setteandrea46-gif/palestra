@@ -19,6 +19,7 @@ const state = {
   completedExercises: {},
   activeTimer: null,
   timerInterval: null,
+  lastWorkoutSummary: null,
 };
 
 const els = {
@@ -38,6 +39,7 @@ const els = {
   dietSection: document.querySelector("#dietSection"),
   improvementsSection: document.querySelector("#improvementsSection"),
   statsSection: document.querySelector("#statsSection"),
+  bodyMapSection: document.querySelector("#bodyMapSection"),
   photosSection: document.querySelector("#photosSection"),
   planText: document.querySelector("#planText"),
   fileInput: document.querySelector("#fileInput"),
@@ -60,6 +62,7 @@ const els = {
   weeksCount: document.querySelector("#weeksCount"),
   saveProgram: document.querySelector("#saveProgram"),
   exerciseList: document.querySelector("#exerciseList"),
+  workoutSummary: document.querySelector("#workoutSummary"),
   programDates: document.querySelector("#programDates"),
   newImport: document.querySelector("#newImport"),
   prevCalendarWeek: document.querySelector("#prevCalendarWeek"),
@@ -72,6 +75,7 @@ const els = {
   saveDiet: document.querySelector("#saveDiet"),
   improvementsList: document.querySelector("#improvementsList"),
   statsList: document.querySelector("#statsList"),
+  bodyMapList: document.querySelector("#bodyMapList"),
   progressPhotoInput: document.querySelector("#progressPhotoInput"),
   progressPhotoGrid: document.querySelector("#progressPhotoGrid"),
 };
@@ -260,6 +264,7 @@ function cloneWorkouts(workouts) {
       rest: exercise.rest || "",
       sessionWeights: Array.isArray(exercise.sessionWeights) ? exercise.sessionWeights : [],
       done: Boolean(exercise.done),
+      muscle: exercise.muscle || "",
     })),
   }));
 }
@@ -276,6 +281,7 @@ function saveState() {
       completedExercises: state.completedExercises,
       selectedCalendarStart: state.selectedCalendarStart,
       activeView: state.activeView,
+      lastWorkoutSummary: state.lastWorkoutSummary,
     }),
   );
 }
@@ -304,6 +310,7 @@ function hydrateProfileState() {
   state.calendar = {};
   state.completedExercises = {};
   state.selectedCalendarStart = weekStartISO(todayISO());
+  state.lastWorkoutSummary = null;
   state.activeView = "workouts";
 
   const raw = localStorage.getItem(profileKey(STORAGE_KEY)) || localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
@@ -318,6 +325,7 @@ function hydrateProfileState() {
       state.calendar = saved.calendar || {};
       state.completedExercises = saved.completedExercises || {};
       state.selectedCalendarStart = saved.selectedCalendarStart || weekStartISO(todayISO());
+      state.lastWorkoutSummary = saved.lastWorkoutSummary || null;
       if (state.program?.workouts) {
         state.program.workouts = cloneWorkouts(state.program.workouts);
         state.program.history = state.program.history || {};
@@ -510,6 +518,7 @@ function showOnly(section) {
     els.dietSection,
     els.improvementsSection,
     els.statsSection,
+    els.bodyMapSection,
     els.photosSection,
   ].forEach((el) => el.classList.add("hidden"));
   els.workoutSection.classList.toggle("hidden", section !== "workouts");
@@ -520,6 +529,7 @@ function showOnly(section) {
   if (section === "diet") els.dietSection.classList.remove("hidden");
   if (section === "improvements") els.improvementsSection.classList.remove("hidden");
   if (section === "stats") els.statsSection.classList.remove("hidden");
+  if (section === "bodymap") els.bodyMapSection.classList.remove("hidden");
   if (section === "photos") els.photosSection.classList.remove("hidden");
 }
 
@@ -553,6 +563,11 @@ function setActiveView(view) {
   if (view === "stats") {
     renderStats();
     showOnly("stats");
+  }
+
+  if (view === "bodymap") {
+    renderBodyMap();
+    showOnly("bodymap");
   }
 
   if (view === "photos") {
@@ -820,6 +835,8 @@ function saveExerciseSession(exercise, weights) {
       date: todayISO(),
       weights: cleanWeights.map((weight) => Number(weight.toFixed(2))),
       weight: Number(Math.max(...cleanWeights).toFixed(2)),
+      sets: exercise.sets || "",
+      reps: exercise.reps || "",
     },
   ];
   exercise.sessionWeights = [];
@@ -921,6 +938,25 @@ function exerciseNameById(exerciseId) {
   return allExercises().find((exercise) => exercise.id === exerciseId)?.name || "Esercizio";
 }
 
+const MUSCLE_OPTIONS = ["Petto", "Dorso", "Gambe", "Spalle", "Bicipiti", "Tricipiti", "Addome", "Glutei", "Polpacci", "Altro"];
+
+function detectMuscle(exercise) {
+  if (exercise.muscle) return exercise.muscle;
+  const name = normalizeExerciseName(exercise.name || "");
+  const rules = [
+    ["Petto", ["panca", "chest", "croci", "push-up", "pushup", "pectoral"]],
+    ["Dorso", ["lat", "pulley", "rematore", "row", "trazioni", "pull-up", "pullup", "dorso"]],
+    ["Gambe", ["squat", "press", "leg", "affondi", "lunge", "extension", "curl-seduto"]],
+    ["Spalle", ["shoulder", "lento", "alzate", "deltoidi", "military"]],
+    ["Bicipiti", ["curl", "bicipiti"]],
+    ["Tricipiti", ["tricipiti", "push-down", "pushdown", "french"]],
+    ["Addome", ["crunch", "plank", "addome", "russian", "sit-up", "situp"]],
+    ["Glutei", ["glute", "hip-thrust", "abductor", "abduzioni"]],
+    ["Polpacci", ["calf", "polpacci", "calf-raise"]],
+  ];
+  return rules.find(([, keys]) => keys.some((key) => name.includes(key)))?.[0] || "Altro";
+}
+
 function improvementRows() {
   return Object.entries(state.program?.history || {})
     .map(([exerciseId, entries]) => {
@@ -929,18 +965,23 @@ function improvementRows() {
       const first = weights[0] || 0;
       const best = Math.max(...weights, 0);
       const latest = weights.at(-1) || 0;
+      const previous = weights.length > 1 ? weights.at(-2) : latest;
+      const percent = first ? Number((((latest - first) / first) * 100).toFixed(1)) : 0;
       return {
         exerciseId,
         name: exerciseNameById(exerciseId),
+        entries,
         first,
         best,
         latest,
+        previous,
+        trend: latest > previous ? "up" : latest < previous ? "down" : "same",
         gain: Number((best - first).toFixed(2)),
+        percent,
         sessions: entries.length,
       };
     })
-    .filter(Boolean)
-    .sort((a, b) => b.gain - a.gain);
+    .filter(Boolean);
 }
 
 function metricCard(label, value, detail = "") {
@@ -954,6 +995,63 @@ function metricCard(label, value, detail = "") {
   return card;
 }
 
+function lineChartSvg(entries) {
+  const points = entries.map((entry) => entryBestWeight(entry)).filter((weight) => weight > 0);
+  if (!points.length) return '<div class="mini-line empty-state">Nessun dato</div>';
+  const width = 280;
+  const height = 110;
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = Math.max(1, max - min);
+  const coords = points.map((weight, index) => {
+    const x = points.length === 1 ? width / 2 : (index / (points.length - 1)) * width;
+    const y = height - ((weight - min) / range) * (height - 18) - 9;
+    return [x, y];
+  });
+  const path = coords
+    .map(([x, y], index) => {
+      if (index === 0) return `M ${x} ${y}`;
+      const [prevX, prevY] = coords[index - 1];
+      const midX = (prevX + x) / 2;
+      return `C ${midX} ${prevY}, ${midX} ${y}, ${x} ${y}`;
+    })
+    .join(" ");
+  const lastDown = points.length > 1 && points.at(-1) < points.at(-2);
+  const dots = coords.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4"></circle>`).join("");
+  return `
+    <svg class="mini-line ${lastDown ? "down" : "up"}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Grafico progressi">
+      <path d="${path}"></path>
+      ${dots}
+    </svg>
+  `;
+}
+
+function renderImprovementCard(row) {
+  const card = document.createElement("article");
+  card.className = `improvement-card trend-${row.trend}`;
+  const detailRows = row.entries
+    .slice()
+    .reverse()
+    .map((entry) => `<li>${formatDate(entry.date)} - ${entryWeightsLabel(entry)}${entry.reps ? ` - ${entry.reps} rip.` : ""}</li>`)
+    .join("");
+  card.innerHTML = `
+    <button class="improvement-head" type="button">
+      <span>${escapeHtml(row.name)}</span>
+      <strong>${row.gain >= 0 ? "+" : ""}${row.gain} kg</strong>
+      <small>${row.percent >= 0 ? "+" : ""}${row.percent}% · ultimo ${row.latest} kg</small>
+    </button>
+    ${lineChartSvg(row.entries)}
+    <div class="improvement-detail hidden">
+      <p>${row.trend === "down" ? "Ultima sessione più bassa della precedente." : "Andamento stabile o in crescita."}</p>
+      <ol>${detailRows}</ol>
+    </div>
+  `;
+  card.querySelector(".improvement-head").addEventListener("click", () => {
+    card.querySelector(".improvement-detail").classList.toggle("hidden");
+  });
+  return card;
+}
+
 function renderDiet() {
   els.dietGoal.value = state.diet.goal || "";
   els.dietNotes.value = state.diet.notes || "";
@@ -964,15 +1062,112 @@ function renderImprovements() {
   const rows = improvementRows();
 
   if (!rows.length) {
-    els.improvementsList.append(metricCard("Miglioramenti", "0 kg", "Salva almeno due carichi per vedere l'aumento."));
+    els.improvementsList.append(metricCard("Miglioramenti", "0 kg", "Salva almeno un allenamento per vedere i grafici."));
     return;
   }
 
-  rows.slice(0, 8).forEach((row) => {
-    els.improvementsList.append(
-      metricCard(row.name, `+${row.gain} kg`, `Massimo ${row.best} kg · ultimo ${row.latest} kg · ${row.sessions} sessioni`),
-    );
+  rows.forEach((row) => els.improvementsList.append(renderImprovementCard(row)));
+}
+
+function muscleOptionsMarkup(selected) {
+  return MUSCLE_OPTIONS.map((muscle) => `<option value="${muscle}" ${muscle === selected ? "selected" : ""}>${muscle}</option>`).join("");
+}
+
+function renderBodyMap() {
+  els.bodyMapList.innerHTML = "";
+
+  if (!state.program?.workouts?.length) {
+    els.bodyMapList.append(metricCard("Mappa corpo", "-", "Salva una scheda per vedere i gruppi muscolari."));
+    return;
+  }
+
+  state.program.workouts.forEach((workout, workoutIndex) => {
+    const counts = new Map(MUSCLE_OPTIONS.map((muscle) => [muscle, 0]));
+    (workout.exercises || []).forEach((exercise) => {
+      const muscle = detectMuscle(exercise);
+      counts.set(muscle, (counts.get(muscle) || 0) + 1);
+    });
+
+    const activeMuscles = [...counts.entries()].filter(([, count]) => count > 0);
+    const missingMuscles = MUSCLE_OPTIONS.filter((muscle) => muscle !== "Altro" && !counts.get(muscle));
+    const card = document.createElement("article");
+    card.className = "body-map-card";
+    card.innerHTML = `
+      <div class="body-map-head">
+        <h3>${escapeHtml(workout.title || `Allenamento ${workoutIndex + 1}`)}</h3>
+        <small>${workout.exercises.length || 0} esercizi</small>
+      </div>
+      <div class="muscle-chip-grid">
+        ${
+          activeMuscles.length
+            ? activeMuscles.map(([muscle, count]) => `<span>${muscle}: <strong>${count}</strong> esercizi</span>`).join("")
+            : "<span>Nessun esercizio</span>"
+        }
+      </div>
+      <p class="missing-muscles">Mancano: ${missingMuscles.slice(0, 5).join(", ") || "nessun gruppo principale"}</p>
+      <div class="muscle-editor"></div>
+    `;
+
+    const editor = card.querySelector(".muscle-editor");
+    (workout.exercises || []).forEach((exercise) => {
+      const selected = detectMuscle(exercise);
+      const row = document.createElement("label");
+      row.className = "muscle-row";
+      row.innerHTML = `
+        <span>${escapeHtml(exercise.name || "Esercizio")}</span>
+        <select class="muscle-select" data-exercise-id="${escapeHtml(exercise.id)}">
+          ${muscleOptionsMarkup(selected)}
+        </select>
+      `;
+      row.querySelector("select").addEventListener("change", (event) => {
+        exercise.muscle = event.target.value;
+        saveState();
+        renderBodyMap();
+      });
+      editor.append(row);
+    });
+
+    els.bodyMapList.append(card);
   });
+}
+
+function buildWorkoutSummary(workout, savedCount, skippedCount, savedExercises) {
+  const bestExercise = savedExercises
+    .map((exercise) => {
+      const latest = getExerciseHistory(exercise.id).at(-1);
+      return {
+        name: exercise.name || "Esercizio",
+        weight: latest ? entryBestWeight(latest) : 0,
+      };
+    })
+    .sort((a, b) => b.weight - a.weight)[0];
+
+  return {
+    date: todayISO(),
+    title: workout.title || "Allenamento",
+    savedCount,
+    skippedCount,
+    bestExercise: bestExercise?.weight ? bestExercise : null,
+  };
+}
+
+function renderWorkoutSummary() {
+  if (!state.lastWorkoutSummary) {
+    els.workoutSummary.classList.add("hidden");
+    els.workoutSummary.innerHTML = "";
+    return;
+  }
+
+  const summary = state.lastWorkoutSummary;
+  els.workoutSummary.classList.remove("hidden");
+  els.workoutSummary.innerHTML = `
+    <div>
+      <span>Ultimo invio</span>
+      <strong>${escapeHtml(summary.title)} - ${formatDate(summary.date)}</strong>
+    </div>
+    <p>${summary.savedCount} esercizi mandati a miglioramenti. ${summary.skippedCount} saltati.</p>
+    <small>${summary.bestExercise ? `Carico piu alto: ${escapeHtml(summary.bestExercise.name)} ${summary.bestExercise.weight} kg.` : "Nessun peso inserito in questo invio."}</small>
+  `;
 }
 
 function renderStats() {
@@ -981,7 +1176,7 @@ function renderStats() {
   const exercises = allExercises();
   const rows = improvementRows();
   const totalGain = rows.reduce((sum, row) => sum + Math.max(0, row.gain), 0);
-  const best = rows[0];
+  const best = rows.slice().sort((a, b) => b.gain - a.gain)[0];
   const lastDate = entries
     .map((entry) => entry.date)
     .sort()
@@ -1203,10 +1398,20 @@ function renderWorkoutFooter(workoutIndex) {
   `;
 
   footer.querySelector(".send-workout").addEventListener("click", () => {
-    workout.exercises.reduce((count, exercise) => {
-      return saveExerciseSession(exercise, exercise.sessionWeights || []) ? count + 1 : count;
-    }, 0);
+    const savedExercises = [];
+    workout.exercises.forEach((exercise) => {
+      if (saveExerciseSession(exercise, exercise.sessionWeights || [])) {
+        savedExercises.push(exercise);
+      }
+    });
 
+    state.calendar[todayISO()] = "done";
+    state.lastWorkoutSummary = buildWorkoutSummary(
+      workout,
+      savedExercises.length,
+      Math.max(0, workout.exercises.length - savedExercises.length),
+      savedExercises,
+    );
     resetWorkoutSession(workout);
     saveState();
     renderWorkouts();
@@ -1281,6 +1486,7 @@ function renderWorkouts() {
   if (!state.program) return;
   renderProgramSummary();
   renderCalendar();
+  renderWorkoutSummary();
   els.exerciseList.innerHTML = "";
 
   if (!state.program.workouts.length) {
