@@ -19,6 +19,9 @@ const state = {
   sessions: [],
   calendar: {},
   selectedCalendarStart: null,
+  selectedCalendarDate: null,
+  calendarOpen: false,
+  activeEntryDate: null,
   completedExercises: {},
   activeTimer: null,
   timerInterval: null,
@@ -72,8 +75,11 @@ const els = {
   newImport: document.querySelector("#newImport"),
   prevCalendarWeek: document.querySelector("#prevCalendarWeek"),
   nextCalendarWeek: document.querySelector("#nextCalendarWeek"),
+  calendarToggle: document.querySelector("#calendarToggle"),
+  calendarPanel: document.querySelector("#calendarPanel"),
   calendarTitle: document.querySelector("#calendarTitle"),
   calendarStrip: document.querySelector("#calendarStrip"),
+  calendarDayActions: document.querySelector("#calendarDayActions"),
   historyTemplate: document.querySelector("#historyTemplate"),
   dietGoal: document.querySelector("#dietGoal"),
   dietNotes: document.querySelector("#dietNotes"),
@@ -178,24 +184,28 @@ function logoutProfile() {
 }
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return dateToLocalISO(new Date());
 }
 
 function dateFromISO(dateISO) {
   return new Date(`${dateISO}T00:00:00`);
 }
 
+function dateToLocalISO(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 function addDaysISO(dateISO, days) {
   const date = dateFromISO(dateISO);
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return dateToLocalISO(date);
 }
 
 function weekStartISO(dateISO) {
   const date = dateFromISO(dateISO);
   const day = date.getDay() || 7;
   date.setDate(date.getDate() - day + 1);
-  return date.toISOString().slice(0, 10);
+  return dateToLocalISO(date);
 }
 
 function formatDate(dateISO) {
@@ -223,13 +233,13 @@ function formatMonth(dateISO) {
 function monthStartISO(dateISO) {
   const date = dateFromISO(dateISO);
   date.setDate(1);
-  return date.toISOString().slice(0, 10);
+  return dateToLocalISO(date);
 }
 
 function addMonthsISO(dateISO, months) {
   const date = dateFromISO(dateISO);
   date.setMonth(date.getMonth() + months, 1);
-  return date.toISOString().slice(0, 10);
+  return dateToLocalISO(date);
 }
 
 function parseRestSeconds(rest) {
@@ -247,7 +257,11 @@ function formatTimer(seconds) {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 }
 
-function completionKey(exerciseId, dateISO = todayISO()) {
+function activeLogDate() {
+  return state.activeEntryDate || todayISO();
+}
+
+function completionKey(exerciseId, dateISO = activeLogDate()) {
   return `${dateISO}:${exerciseId}`;
 }
 
@@ -321,6 +335,9 @@ function saveState() {
       calendar: state.calendar,
       completedExercises: state.completedExercises,
       selectedCalendarStart: state.selectedCalendarStart,
+      selectedCalendarDate: state.selectedCalendarDate,
+      calendarOpen: state.calendarOpen,
+      activeEntryDate: state.activeEntryDate,
       activeView: state.activeView,
       lastWorkoutSummary: state.lastWorkoutSummary,
     }),
@@ -354,6 +371,9 @@ function hydrateProfileState() {
   state.calendar = {};
   state.completedExercises = {};
   state.selectedCalendarStart = monthStartISO(todayISO());
+  state.selectedCalendarDate = null;
+  state.calendarOpen = false;
+  state.activeEntryDate = null;
   state.lastWorkoutSummary = null;
   state.activeView = "workouts";
 
@@ -372,6 +392,9 @@ function hydrateProfileState() {
       state.calendar = saved.calendar || {};
       state.completedExercises = saved.completedExercises || {};
       state.selectedCalendarStart = saved.selectedCalendarStart || monthStartISO(todayISO());
+      state.selectedCalendarDate = saved.selectedCalendarDate || null;
+      state.calendarOpen = Boolean(saved.calendarOpen);
+      state.activeEntryDate = saved.activeEntryDate || null;
       state.lastWorkoutSummary = saved.lastWorkoutSummary || null;
       if (state.program?.workouts) {
         state.program.workouts = cloneWorkouts(state.program.workouts);
@@ -808,14 +831,8 @@ function renderProgramSummary() {
 }
 
 function calendarStatusLabel(status) {
-  if (status === "planned") return "P";
-  if (status === "done") return "F";
-  return "";
-}
-
-function nextCalendarStatus(status) {
-  if (!status) return "planned";
-  if (status === "planned") return "done";
+  if (status === "planned") return "0";
+  if (status === "done") return "V";
   return "";
 }
 
@@ -825,8 +842,61 @@ function latestSessionByDate(dateISO) {
     .sort((a, b) => String(b.savedAt || "").localeCompare(String(a.savedAt || "")))[0];
 }
 
+function setCalendarStatus(dateISO, status) {
+  if (status) {
+    state.calendar[dateISO] = status;
+  } else {
+    delete state.calendar[dateISO];
+  }
+  saveState();
+  renderCalendar();
+}
+
+function openWorkoutForDate(dateISO, workoutIndex) {
+  state.activeEntryDate = dateISO;
+  state.selectedWorkout = workoutIndex;
+  state.calendarOpen = false;
+  saveState();
+  renderWorkouts();
+}
+
+function renderCalendarDayActions(dateISO) {
+  if (!els.calendarDayActions) return;
+  if (!dateISO) {
+    els.calendarDayActions.classList.add("hidden");
+    els.calendarDayActions.innerHTML = "";
+    return;
+  }
+
+  const session = latestSessionByDate(dateISO);
+  els.calendarDayActions.classList.remove("hidden");
+  els.calendarDayActions.innerHTML = `
+    <strong>${formatDate(dateISO)}</strong>
+    <div class="calendar-action-grid">
+      <button type="button" data-status="done">V Fatto</button>
+      <button type="button" data-status="planned">0 Da fare</button>
+      <button type="button" data-status="">Vuoto</button>
+    </div>
+    ${session ? `<p>Gia salvato: ${escapeHtml(session.workoutTitle)}. Puoi riaprirlo o aggiungere pesi mancanti.</p>` : "<p>Scegli un allenamento da compilare per questa data.</p>"}
+    <div class="calendar-workout-grid">
+      ${(state.program?.workouts || [])
+        .map((workout, index) => `<button type="button" data-workout-index="${index}">${escapeHtml(workout.title || `Allenamento ${index + 1}`)}</button>`)
+        .join("")}
+    </div>
+  `;
+
+  els.calendarDayActions.querySelectorAll("[data-status]").forEach((button) => {
+    button.addEventListener("click", () => setCalendarStatus(dateISO, button.dataset.status));
+  });
+  els.calendarDayActions.querySelectorAll("[data-workout-index]").forEach((button) => {
+    button.addEventListener("click", () => openWorkoutForDate(dateISO, Number(button.dataset.workoutIndex)));
+  });
+}
+
 function renderCalendar() {
   if (!els.calendarStrip) return;
+  els.calendarPanel.classList.toggle("collapsed", !state.calendarOpen);
+  els.calendarToggle.setAttribute("aria-expanded", String(state.calendarOpen));
   const start = monthStartISO(state.selectedCalendarStart || todayISO());
   state.selectedCalendarStart = start;
   els.calendarTitle.textContent = formatMonth(start);
@@ -849,7 +919,7 @@ function renderCalendar() {
     const status = state.calendar[dateISO] || "";
     const session = latestSessionByDate(dateISO);
     const button = document.createElement("button");
-    button.className = `calendar-day ${status ? `is-${status}` : ""} ${session ? "has-session" : ""} ${dateISO === todayISO() ? "today" : ""}`;
+    button.className = `calendar-day ${status ? `is-${status}` : ""} ${session ? "has-session" : ""} ${dateISO === state.selectedCalendarDate ? "selected" : ""} ${dateISO === todayISO() ? "today" : ""}`;
     button.type = "button";
     button.innerHTML = `
       <span>${formatShortDay(dateISO)}</span>
@@ -857,35 +927,14 @@ function renderCalendar() {
       ${session ? `<small>${escapeHtml(session.workoutTitle)}</small>` : ""}
     `;
     button.addEventListener("click", () => {
-      const savedSession = latestSessionByDate(dateISO);
-      if (savedSession) {
-        const workoutIndex = state.program.workouts.findIndex((workout) => workout.id === savedSession.workoutId);
-        if (workoutIndex >= 0) {
-          state.selectedWorkout = workoutIndex;
-          state.lastWorkoutSummary = {
-            date: savedSession.date,
-            title: savedSession.workoutTitle,
-            savedCount: savedSession.exercises.length,
-            skippedCount: savedSession.skippedCount || 0,
-            bestExercise: savedSession.bestExercise || null,
-          };
-          saveState();
-          renderWorkouts();
-          return;
-        }
-      }
-
-      const next = nextCalendarStatus(state.calendar[dateISO]);
-      if (next) {
-        state.calendar[dateISO] = next;
-      } else {
-        delete state.calendar[dateISO];
-      }
+      state.selectedCalendarDate = dateISO;
       saveState();
       renderCalendar();
     });
     els.calendarStrip.append(button);
   }
+
+  renderCalendarDayActions(state.selectedCalendarDate);
 }
 
 function getExerciseHistory(exerciseId) {
@@ -920,16 +969,16 @@ function normaliseWeights(weights) {
   return weights.map(Number).filter((weight) => Number.isFinite(weight) && weight > 0);
 }
 
-function saveExerciseSession(exercise, weights) {
+function saveExerciseSession(exercise, weights, dateISO = activeLogDate()) {
   const cleanWeights = normaliseWeights(weights);
   if (!cleanWeights.length) return false;
 
-  const key = completionKey(exercise.id);
-  state.completedExercises[key] = { date: todayISO(), exerciseId: exercise.id };
+  const key = completionKey(exercise.id, dateISO);
+  state.completedExercises[key] = { date: dateISO, exerciseId: exercise.id };
   state.program.history[exercise.id] = [
     ...getExerciseHistory(exercise.id),
     {
-      date: todayISO(),
+      date: dateISO,
       weights: cleanWeights.map((weight) => Number(weight.toFixed(2))),
       weight: Number(Math.max(...cleanWeights).toFixed(2)),
       sets: exercise.sets || "",
@@ -941,12 +990,12 @@ function saveExerciseSession(exercise, weights) {
   return true;
 }
 
-function resetWorkoutSession(workout) {
+function resetWorkoutSession(workout, dateISO = activeLogDate()) {
   const exerciseIds = new Set((workout.exercises || []).map((exercise) => exercise.id));
 
   workout.exercises.forEach((exercise) => {
     exercise.sessionWeights = [];
-    delete state.completedExercises[completionKey(exercise.id)];
+    delete state.completedExercises[completionKey(exercise.id, dateISO)];
   });
 
   if (state.activeTimer && exerciseIds.has(state.activeTimer.exerciseId)) {
@@ -1230,7 +1279,7 @@ function renderBodyMap() {
   });
 }
 
-function buildWorkoutSummary(workout, savedCount, skippedCount, savedExercises) {
+function buildWorkoutSummary(workout, savedCount, skippedCount, savedExercises, dateISO = activeLogDate()) {
   const bestExercise = savedExercises
     .map((exercise) => {
       const latest = getExerciseHistory(exercise.id).at(-1);
@@ -1242,7 +1291,7 @@ function buildWorkoutSummary(workout, savedCount, skippedCount, savedExercises) 
     .sort((a, b) => b.weight - a.weight)[0];
 
   return {
-    date: todayISO(),
+    date: dateISO,
     title: workout.title || "Allenamento",
     savedCount,
     skippedCount,
@@ -1250,15 +1299,15 @@ function buildWorkoutSummary(workout, savedCount, skippedCount, savedExercises) 
   };
 }
 
-function createSessionRecord(workout, savedExercises, skippedCount) {
+function createSessionRecord(workout, savedExercises, skippedCount, dateISO = activeLogDate()) {
   return {
     id: uid("session"),
-    date: todayISO(),
+    date: dateISO,
     savedAt: new Date().toISOString(),
     workoutId: workout.id,
     workoutTitle: workout.title || "Allenamento",
     skippedCount,
-    bestExercise: buildWorkoutSummary(workout, savedExercises.length, skippedCount, savedExercises).bestExercise,
+    bestExercise: buildWorkoutSummary(workout, savedExercises.length, skippedCount, savedExercises, dateISO).bestExercise,
     exercises: savedExercises.map((exercise) => {
       const latest = getExerciseHistory(exercise.id).at(-1);
       return {
@@ -1274,6 +1323,19 @@ function createSessionRecord(workout, savedExercises, skippedCount) {
 }
 
 function renderWorkoutSummary() {
+  if (state.activeEntryDate) {
+    els.workoutSummary.classList.remove("hidden");
+    els.workoutSummary.innerHTML = `
+      <div>
+        <span>Registrazione data</span>
+        <strong>Stai inserendo pesi per ${formatDate(state.activeEntryDate)}</strong>
+      </div>
+      <p>Compila l'allenamento e premi Manda a miglioramenti.</p>
+      <small>Dopo l'invio questa pagina torna alla data di oggi.</small>
+    `;
+    return;
+  }
+
   if (!state.lastWorkoutSummary) {
     els.workoutSummary.classList.add("hidden");
     els.workoutSummary.innerHTML = "";
@@ -1417,6 +1479,9 @@ function currentBackupData() {
       calendar: state.calendar,
       completedExercises: state.completedExercises,
       selectedCalendarStart: state.selectedCalendarStart,
+      selectedCalendarDate: state.selectedCalendarDate,
+      calendarOpen: state.calendarOpen,
+      activeEntryDate: state.activeEntryDate,
       activeView: state.activeView,
       lastWorkoutSummary: state.lastWorkoutSummary,
     },
@@ -1440,6 +1505,9 @@ function applyBackupData(backup) {
   state.calendar = data.calendar || {};
   state.completedExercises = data.completedExercises || {};
   state.selectedCalendarStart = data.selectedCalendarStart || monthStartISO(todayISO());
+  state.selectedCalendarDate = data.selectedCalendarDate || null;
+  state.calendarOpen = Boolean(data.calendarOpen);
+  state.activeEntryDate = data.activeEntryDate || null;
   state.activeView = data.activeView || "workouts";
   state.lastWorkoutSummary = data.lastWorkoutSummary || null;
   saveState();
@@ -1682,25 +1750,28 @@ function renderWorkoutFooter(workoutIndex) {
   `;
 
   footer.querySelector(".send-workout").addEventListener("click", () => {
+    const targetDate = activeLogDate();
     const savedExercises = [];
     workout.exercises.forEach((exercise) => {
-      if (saveExerciseSession(exercise, exercise.sessionWeights || [])) {
+      if (saveExerciseSession(exercise, exercise.sessionWeights || [], targetDate)) {
         savedExercises.push(exercise);
       }
     });
 
     const skippedCount = Math.max(0, workout.exercises.length - savedExercises.length);
-    state.calendar[todayISO()] = "done";
+    state.calendar[targetDate] = "done";
     state.lastWorkoutSummary = buildWorkoutSummary(
       workout,
       savedExercises.length,
       skippedCount,
       savedExercises,
+      targetDate,
     );
     if (savedExercises.length) {
-      state.sessions.unshift(createSessionRecord(workout, savedExercises, skippedCount));
+      state.sessions.unshift(createSessionRecord(workout, savedExercises, skippedCount, targetDate));
     }
-    resetWorkoutSession(workout);
+    resetWorkoutSession(workout, targetDate);
+    state.activeEntryDate = null;
     saveState();
     renderWorkouts();
     renderImprovements();
@@ -1902,6 +1973,12 @@ els.profilePin.addEventListener("keydown", (event) => {
 
 els.logoutApp.addEventListener("click", logoutProfile);
 
+els.calendarToggle.addEventListener("click", () => {
+  state.calendarOpen = !state.calendarOpen;
+  saveState();
+  renderCalendar();
+});
+
 els.featureNav.addEventListener("click", (event) => {
   const button = event.target.closest(".feature-card");
   if (!button) return;
@@ -2046,6 +2123,9 @@ els.resetApp.addEventListener("click", () => {
   state.sessions = [];
   state.calendar = {};
   state.completedExercises = {};
+  state.selectedCalendarDate = null;
+  state.calendarOpen = false;
+  state.activeEntryDate = null;
   state.lastWorkoutSummary = null;
   els.planText.value = "";
   state.activeView = "workouts";

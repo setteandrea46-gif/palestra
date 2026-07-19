@@ -151,14 +151,16 @@
           <button class="secondary-button compact" id="newImport" type="button">Nuova scheda</button>
         </div>
 
-        <section class="calendar-panel" aria-label="Calendario palestra">
+        <button class="calendar-toggle" id="calendarToggle" type="button" aria-expanded="false">Calendario</button>
+        <section class="calendar-panel collapsed" id="calendarPanel" aria-label="Calendario palestra">
           <div class="calendar-head">
             <button class="secondary-button compact" id="prevCalendarWeek" type="button">Indietro</button>
             <strong id="calendarTitle">Mese</strong>
             <button class="secondary-button compact" id="nextCalendarWeek" type="button">Avanti</button>
           </div>
           <div id="calendarStrip" class="calendar-strip"></div>
-          <p class="calendar-help">Tocca una data: vuoto = non segnato, P = programmato, F = fatto. Se c'e un allenamento salvato, lo riapre.</p>
+          <div id="calendarDayActions" class="calendar-day-actions hidden"></div>
+          <p class="calendar-help">Tocca una data e scegli: V = fatto, 0 = da fare, oppure apri un allenamento vecchio da compilare.</p>
         </section>
 
         <div id="workoutSummary" class="workout-summary hidden"></div>

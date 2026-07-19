@@ -18,7 +18,8 @@ Web app mobile-first per importare una scheda di allenamento in formato testo, s
 - Vista verticale con tab per workout
 - Vista a box verticali: si apre solo l'allenamento selezionato
 - Calendario mensile cliccabile con mesi precedenti e successivi
-- Clic su un giorno gia allenato per riaprire l'allenamento fatto quel giorno
+- Calendario compatto apribile solo quando serve
+- Clic su un giorno per scegliere V fatto, 0 da fare, vuoto o compilare un allenamento vecchio con i pesi corretti
 - Timer recupero su ogni esercizio, calcolato dai secondi scritti nella scheda
 - Pulsante V su ogni esercizio per segnare cosa hai completato oggi
 - Pesi per singola serie con tasto Fatto, salvati nello storico e nei miglioramenti
