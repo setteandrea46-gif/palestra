@@ -13,7 +13,7 @@ const state = {
   selectedWorkout: 0,
   selectedPreviewWorkout: 0,
   selectedImages: [],
-  diet: { goal: "", notes: "" },
+  diet: { goal: "", notes: "", days: [], rawText: "" },
   progressPhotos: [],
   bodyMetrics: [],
   sessions: [],
@@ -84,6 +84,9 @@ const els = {
   historyTemplate: document.querySelector("#historyTemplate"),
   dietGoal: document.querySelector("#dietGoal"),
   dietNotes: document.querySelector("#dietNotes"),
+  dietFileInput: document.querySelector("#dietFileInput"),
+  dietReadStatus: document.querySelector("#dietReadStatus"),
+  dietDays: document.querySelector("#dietDays"),
   saveDiet: document.querySelector("#saveDiet"),
   improvementsList: document.querySelector("#improvementsList"),
   statsList: document.querySelector("#statsList"),
@@ -179,7 +182,7 @@ function logoutProfile() {
   state.parsedWorkouts = [];
   state.selectedWorkout = 0;
   state.selectedPreviewWorkout = 0;
-  state.diet = { goal: "", notes: "" };
+  state.diet = { goal: "", notes: "", days: [], rawText: "" };
   state.progressPhotos = [];
   setLoggedLayout(false);
 }
@@ -365,7 +368,7 @@ function hydrateProfileState() {
   state.parsedWorkouts = [];
   state.selectedWorkout = 0;
   state.selectedPreviewWorkout = 0;
-  state.diet = { goal: "", notes: "" };
+  state.diet = { goal: "", notes: "", days: [], rawText: "" };
   state.progressPhotos = [];
   state.bodyMetrics = [];
   state.sessions = [];
@@ -386,7 +389,7 @@ function hydrateProfileState() {
       state.archivedPrograms = saved.archivedPrograms || [];
       state.selectedWorkout = saved.selectedWorkout ?? 0;
       state.activeView = saved.activeView || "workouts";
-      state.diet = saved.diet || { goal: "", notes: "" };
+      state.diet = { goal: "", notes: "", days: [], rawText: "", ...(saved.diet || {}) };
       state.progressPhotos = saved.progressPhotos || [];
       state.bodyMetrics = saved.bodyMetrics || [];
       state.sessions = saved.sessions || [];
@@ -579,6 +582,103 @@ function parseWorkoutText(text) {
   });
 
   return workouts.filter((workout) => workout?.exercises?.length > 0);
+}
+
+const DIET_DAY_NAMES = [
+  "lunedi",
+  "martedi",
+  "mercoledi",
+  "giovedi",
+  "venerdi",
+  "sabato",
+  "domenica",
+];
+
+function normalizeDietDay(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function dietDayFromLine(line) {
+  const normalized = normalizeDietDay(line).replace(/[^a-z]/g, " ").trim();
+  return DIET_DAY_NAMES.find((day) => normalized.startsWith(day) || normalized === day.slice(0, 3));
+}
+
+function titleFromDietDay(day) {
+  if (!day) return "Dieta";
+  return day.charAt(0).toUpperCase() + day.slice(1);
+}
+
+function parseDietText(text) {
+  const lines = String(text || "")
+    .replace(/\r/g, "\n")
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const days = [];
+  let current = null;
+
+  lines.forEach((line) => {
+    const day = dietDayFromLine(line);
+    if (day) {
+      current = {
+        id: uid("diet-day"),
+        title: titleFromDietDay(day),
+        meals: [],
+      };
+      const separatorIndex = line.search(/[:\-–]/);
+      const remainder = separatorIndex >= 0 ? line.slice(separatorIndex + 1).trim() : "";
+      if (remainder) current.meals.push(remainder);
+      days.push(current);
+      return;
+    }
+
+    if (!current) {
+      current = { id: uid("diet-day"), title: "Dieta generale", meals: [] };
+      days.push(current);
+    }
+    current.meals.push(line);
+  });
+
+  return days.filter((day) => day.meals.length);
+}
+
+function extractBodyMetricsFromText(text) {
+  const raw = String(text || "").toLowerCase();
+  const weightMatch = raw.match(/peso(?:\s+corporeo)?\s*[:\-]?\s*(\d{2,3}(?:[,.]\d)?)\s*kg/i);
+  const measures = [];
+  const measureRegex = /\b(vita|fianchi|petto|torace|braccio|braccia|coscia|cosce|polpaccio|polpacci|spalle)\s*[:\-]?\s*(\d{2,3}(?:[,.]\d)?)\s*cm/gi;
+  let match = measureRegex.exec(raw);
+  while (match) {
+    measures.push(`${match[1]} ${match[2].replace(",", ".")} cm`);
+    match = measureRegex.exec(raw);
+  }
+
+  return {
+    weight: weightMatch ? Number(weightMatch[1].replace(",", ".")) : "",
+    measures: measures.join(", "),
+  };
+}
+
+function saveExtractedBodyMetrics(text) {
+  const metric = extractBodyMetricsFromText(text);
+  if (!metric.weight && !metric.measures) return false;
+  const today = todayISO();
+  const existing = state.bodyMetrics.find((item) => item.date === today);
+  if (existing) {
+    existing.weight = metric.weight || existing.weight || "";
+    existing.measures = metric.measures || existing.measures || "";
+  } else {
+    state.bodyMetrics.unshift({
+      id: uid("metric"),
+      date: today,
+      weight: metric.weight,
+      measures: metric.measures,
+    });
+  }
+  return true;
 }
 
 function showOnly(section) {
@@ -1279,7 +1379,52 @@ function renderImprovementCard(row) {
 
 function renderDiet() {
   els.dietGoal.value = state.diet.goal || "";
-  els.dietNotes.value = state.diet.notes || "";
+  els.dietNotes.value = state.diet.rawText || state.diet.notes || "";
+  els.dietDays.innerHTML = "";
+
+  if (!state.diet.days?.length) {
+    els.dietDays.innerHTML = '<p class="empty-state">Carica PDF/foto o incolla il testo per dividere la dieta per giorni.</p>';
+    return;
+  }
+
+  state.diet.days.forEach((day) => {
+    const card = document.createElement("article");
+    card.className = "diet-day-card";
+    card.dataset.dietDayId = day.id;
+    card.innerHTML = `
+      <label>
+        <span>Giorno</span>
+        <input class="diet-day-title" type="text" value="${escapeHtml(day.title)}" />
+      </label>
+      <label>
+        <span>Pasti</span>
+        <textarea class="diet-day-meals" rows="6">${escapeHtml((day.meals || []).join("\n"))}</textarea>
+      </label>
+      <button class="remove-mini" type="button">Togli giorno</button>
+    `;
+    card.querySelector(".diet-day-title").addEventListener("input", updateDietFromInputs);
+    card.querySelector(".diet-day-meals").addEventListener("input", updateDietFromInputs);
+    card.querySelector(".remove-mini").addEventListener("click", () => {
+      state.diet.days = state.diet.days.filter((item) => item.id !== day.id);
+      saveState();
+      renderDiet();
+    });
+    els.dietDays.append(card);
+  });
+}
+
+function updateDietFromInputs() {
+  state.diet.days = [...els.dietDays.querySelectorAll(".diet-day-card")].map((card) => ({
+    id: card.dataset.dietDayId || uid("diet-day"),
+    title: card.querySelector(".diet-day-title").value.trim() || "Giorno",
+    meals: card
+      .querySelector(".diet-day-meals")
+      .value.split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean),
+  }));
+  state.diet.rawText = els.dietNotes.value.trim();
+  saveState();
 }
 
 function renderImprovements() {
@@ -1298,8 +1443,66 @@ function muscleOptionsMarkup(selected) {
   return MUSCLE_OPTIONS.map((muscle) => `<option value="${muscle}" ${muscle === selected ? "selected" : ""}>${muscle}</option>`).join("");
 }
 
+function bodyWeightChartSvg() {
+  const points = (state.bodyMetrics || [])
+    .slice()
+    .reverse()
+    .map((metric) => Number(metric.weight))
+    .filter((weight) => Number.isFinite(weight) && weight > 0);
+  if (!points.length) return '<p class="empty-state">Aggiungi o importa peso per vedere il grafico.</p>';
+  const width = 280;
+  const height = 104;
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = Math.max(1, max - min);
+  const coords = points.map((weight, index) => {
+    const x = points.length === 1 ? width / 2 : (index / (points.length - 1)) * width;
+    const y = height - ((weight - min) / range) * (height - 18) - 9;
+    return [x, y];
+  });
+  const path = coords
+    .map(([x, y], index) => {
+      if (index === 0) return `M ${x} ${y}`;
+      const [prevX, prevY] = coords[index - 1];
+      const midX = (prevX + x) / 2;
+      return `C ${midX} ${prevY}, ${midX} ${y}, ${x} ${y}`;
+    })
+    .join(" ");
+  return `
+    <svg class="mini-line body-weight-line" viewBox="0 0 ${width} ${height}" role="img" aria-label="Grafico peso corpo">
+      <path d="${path}"></path>
+      ${coords.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4"></circle>`).join("")}
+    </svg>
+  `;
+}
+
+function renderBodyMetricsCard() {
+  const card = document.createElement("article");
+  card.className = "body-map-card body-metrics-card";
+  const metrics = state.bodyMetrics || [];
+  card.innerHTML = `
+    <div class="body-map-head">
+      <h3>Peso e misure corpo</h3>
+      <small>${metrics.length} rilevazioni</small>
+    </div>
+    ${bodyWeightChartSvg()}
+    <ol class="body-metric-list">
+      ${
+        metrics.length
+          ? metrics
+              .slice(0, 8)
+              .map((metric) => `<li>${formatDate(metric.date)} - ${metric.weight ? `${metric.weight} kg` : "peso n/d"}${metric.measures ? ` - ${escapeHtml(metric.measures)}` : ""}</li>`)
+              .join("")
+          : "<li>Nessuna misura salvata</li>"
+      }
+    </ol>
+  `;
+  return card;
+}
+
 function renderBodyMap() {
   els.bodyMapList.innerHTML = "";
+  els.bodyMapList.append(renderBodyMetricsCard());
 
   if (!state.program?.workouts?.length) {
     els.bodyMapList.append(metricCard("Mappa corpo", "-", "Salva una scheda per vedere i gruppi muscolari."));
@@ -1610,7 +1813,7 @@ function applyBackupData(backup) {
     state.program.history = state.program.history || {};
   }
   state.selectedWorkout = data.selectedWorkout ?? 0;
-  state.diet = data.diet || { goal: "", notes: "" };
+  state.diet = { goal: "", notes: "", days: [], rawText: "", ...(data.diet || {}) };
   state.progressPhotos = data.progressPhotos || [];
   state.bodyMetrics = data.bodyMetrics || [];
   state.sessions = data.sessions || [];
@@ -2060,6 +2263,61 @@ async function readImagesWithOcr({ openPreview = true } = {}) {
   }
 }
 
+async function readDietPdf(file) {
+  if (!window.pdfjsLib) throw new Error("PDF non disponibile");
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+  const data = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data }).promise;
+  const pages = [];
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    pages.push(content.items.map((item) => item.str).join("\n"));
+  }
+  return pages.join("\n\n");
+}
+
+async function readDietImage(file) {
+  if (!window.Tesseract) throw new Error("OCR non disponibile");
+  const result = await window.Tesseract.recognize(file, "ita+eng");
+  return result.data.text;
+}
+
+function applyDietText(text) {
+  const cleanText = String(text || "").trim();
+  state.diet.rawText = cleanText;
+  state.diet.notes = cleanText;
+  state.diet.days = parseDietText(cleanText);
+  const metricSaved = saveExtractedBodyMetrics(cleanText);
+  els.dietNotes.value = cleanText;
+  saveState();
+  renderDiet();
+  renderStats();
+  renderBodyMap();
+  els.dietReadStatus.textContent = metricSaved
+    ? "Dieta letta e divisa per giorni. Ho salvato anche peso/misure trovati."
+    : "Dieta letta e divisa per giorni.";
+}
+
+async function readDietFiles(files) {
+  const selected = [...files];
+  if (!selected.length) return;
+  els.dietReadStatus.textContent = "Sto leggendo la dieta...";
+  const chunks = [];
+
+  for (let index = 0; index < selected.length; index += 1) {
+    const file = selected[index];
+    els.dietReadStatus.textContent = `Lettura dieta ${index + 1} di ${selected.length}`;
+    if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+      chunks.push(await readDietPdf(file));
+    } else if (file.type.startsWith("image/")) {
+      chunks.push(await readDietImage(file));
+    }
+  }
+
+  applyDietText(chunks.join("\n\n"));
+}
+
 els.fileInput.addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
@@ -2118,11 +2376,39 @@ els.featureNav.addEventListener("click", (event) => {
 });
 
 els.saveDiet.addEventListener("click", () => {
+  const rawText = els.dietNotes.value.trim();
+  const existingDays = [...els.dietDays.querySelectorAll(".diet-day-card")].map((card) => ({
+    id: card.dataset.dietDayId || uid("diet-day"),
+    title: card.querySelector(".diet-day-title").value.trim() || "Giorno",
+    meals: card
+      .querySelector(".diet-day-meals")
+      .value.split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean),
+  }));
+  const parsedDays = rawText ? parseDietText(rawText) : [];
   state.diet = {
     goal: els.dietGoal.value.trim(),
-    notes: els.dietNotes.value.trim(),
+    notes: rawText,
+    rawText,
+    days: existingDays.length ? existingDays : parsedDays,
   };
+  const metricSaved = saveExtractedBodyMetrics(rawText);
   saveState();
+  renderDiet();
+  renderStats();
+  renderBodyMap();
+  els.dietReadStatus.textContent = metricSaved ? "Dieta salvata. Peso/misure aggiornati." : "Dieta salvata.";
+});
+
+els.dietFileInput.addEventListener("change", (event) => {
+  readDietFiles(event.target.files || [])
+    .catch(() => {
+      els.dietReadStatus.textContent = "Non sono riuscito a leggere la dieta. Prova con PDF testuale o foto piu nitida.";
+    })
+    .finally(() => {
+      event.target.value = "";
+    });
 });
 
 els.saveBodyMetrics.addEventListener("click", () => {
@@ -2251,7 +2537,7 @@ els.resetApp.addEventListener("click", () => {
   state.archivedPrograms = [];
   state.parsedWorkouts = [];
   state.selectedWorkout = 0;
-  state.diet = { goal: "", notes: "" };
+  state.diet = { goal: "", notes: "", days: [], rawText: "" };
   state.progressPhotos = [];
   state.bodyMetrics = [];
   state.sessions = [];

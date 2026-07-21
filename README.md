@@ -11,6 +11,9 @@ Web app mobile-first per importare una scheda di allenamento in formato testo, s
 - PIN obbligatorio per ogni profilo: se il PIN e sbagliato non entra
 - Nome app dinamico in base al nome del profilo
 - Banner cliccabili per Allenamenti, Dieta, Miglioramenti, Statistiche, Mappa corpo e Foto
+- Import dieta da PDF, foto o screenshot
+- Parser dieta diviso automaticamente per giorni della settimana
+- Estrazione automatica di peso e misure dal testo dieta
 - Parser per giorni di allenamento come `Allenamento 1`, `Workout 1`, `Giorno A`, `Day 1`
 - Anteprima divisa per giorni, modificabile prima del salvataggio
 - Giorni ed esercizi aggiungibili o eliminabili
@@ -34,6 +37,7 @@ Web app mobile-first per importare una scheda di allenamento in formato testo, s
 - Report progressi stampabile/salvabile in PDF
 - Peso corpo e misure salvati nel tempo
 - Peso corpo e misure modificabili o eliminabili se inseriti male
+- Grafico peso corpo e storico misure dentro Mappa corpo
 - Archivio automatico delle vecchie schede quando salvi un nuovo programma
 - Statistiche e miglioramenti aggiornati dai carichi salvati
 - Miglioramenti con grafici a linea curva per esercizio, date, pesi e ripetizioni

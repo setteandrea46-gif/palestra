@@ -171,14 +171,21 @@
       <section class="panel hidden" id="dietSection">
         <div class="section-heading">
           <h2>Dieta</h2>
-          <p>Appunti veloci su pasti, acqua, calorie o indicazioni del nutrizionista.</p>
+          <p>Carica PDF o foto della dieta: l'app legge e divide automaticamente per giorni.</p>
         </div>
+        <label class="photo-picker" for="dietFileInput">
+          <span>Carica dieta PDF o foto</span>
+          <small>PDF, screenshot o foto del piano alimentare</small>
+          <input id="dietFileInput" type="file" accept="application/pdf,.pdf,image/*" multiple />
+        </label>
+        <p class="status-line" id="dietReadStatus"></p>
         <label>
           <span>Obiettivo dieta</span>
           <input id="dietGoal" type="text" placeholder="Definizione, massa, mantenimento..." />
         </label>
+        <div class="diet-days" id="dietDays"></div>
         <label>
-          <span>Note alimentari</span>
+          <span>Testo dieta letto</span>
           <textarea id="dietNotes" rows="9" placeholder="Colazione, pranzo, cena, integrazione..."></textarea>
         </label>
         <button class="primary-button" id="saveDiet" type="button">Salva dieta</button>
@@ -250,6 +257,7 @@
       </details>
     </template>
 
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="app.js"></script>
   </body>

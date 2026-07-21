@@ -1131,6 +1131,44 @@ button:focus-visible {
   line-height: 1.1;
 }
 
+.diet-days {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.diet-day-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(3, 7, 18, 0.48);
+}
+
+.diet-day-card textarea {
+  min-height: 150px;
+  margin-bottom: 0;
+}
+
+.body-metrics-card {
+  border-color: rgba(34, 211, 238, 0.4);
+}
+
+.body-weight-line path {
+  stroke: var(--info);
+}
+
+.body-metric-list {
+  margin: 0;
+  padding-left: 22px;
+  color: var(--muted);
+}
+
+.body-metric-list li {
+  margin-bottom: 7px;
+}
+
 .stats-tools,
 .body-metrics-form {
   display: grid;
@@ -1463,6 +1501,7 @@ h1 {
 .progress-photo-card,
 .improvement-card,
 .body-map-card,
+.diet-day-card,
 .workout-summary,
 .session-card,
 .exercise-card {
