@@ -1267,6 +1267,44 @@ button:focus-visible {
   padding-left: 22px;
 }
 
+.editable-history-row,
+.editable-metric-row {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(3, 7, 18, 0.56);
+}
+
+.editable-history-row input,
+.editable-metric-row input {
+  min-height: 42px;
+  padding: 8px 10px;
+}
+
+.editable-history-row button,
+.editable-metric-row button {
+  min-height: 40px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.86);
+  color: var(--text);
+  font-weight: 850;
+}
+
+.editable-history-row button:last-child,
+.editable-metric-row button:last-child {
+  border-color: rgba(251, 113, 133, 0.38);
+  color: var(--danger);
+}
+
+.editable-metric-list {
+  display: grid;
+  gap: 10px;
+}
+
 .body-map-head {
   display: flex;
   align-items: center;

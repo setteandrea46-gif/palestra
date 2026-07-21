@@ -857,8 +857,18 @@ function openWorkoutForDate(dateISO, workoutIndex) {
   state.activeEntryDate = dateISO;
   state.selectedWorkout = workoutIndex;
   state.calendarOpen = false;
+  prefillWorkoutFromDate(dateISO, workoutIndex);
   saveState();
   renderWorkouts();
+}
+
+function prefillWorkoutFromDate(dateISO, workoutIndex) {
+  const workout = state.program?.workouts?.[workoutIndex];
+  if (!workout) return;
+  workout.exercises.forEach((exercise) => {
+    const historyEntry = getExerciseHistory(exercise.id).find((entry) => entry.date === dateISO);
+    exercise.sessionWeights = historyEntry?.weights ? [...historyEntry.weights] : [];
+  });
 }
 
 function renderCalendarDayActions(dateISO) {
@@ -978,25 +988,65 @@ function normaliseWeights(weights) {
   return weights.map(Number).filter((weight) => Number.isFinite(weight) && weight > 0);
 }
 
+function parseWeightsText(value) {
+  return normaliseWeights(String(value || "").split(/[\/,; ]+/));
+}
+
 function saveExerciseSession(exercise, weights, dateISO = activeLogDate()) {
   const cleanWeights = normaliseWeights(weights);
   if (!cleanWeights.length) return false;
 
   const key = completionKey(exercise.id, dateISO);
   state.completedExercises[key] = { date: dateISO, exerciseId: exercise.id };
-  state.program.history[exercise.id] = [
-    ...getExerciseHistory(exercise.id),
-    {
-      date: dateISO,
-      weights: cleanWeights.map((weight) => Number(weight.toFixed(2))),
-      weight: Number(Math.max(...cleanWeights).toFixed(2)),
-      sets: exercise.sets || "",
-      completedSets: cleanWeights.length,
-      reps: exercise.reps || "",
-    },
-  ];
+  const nextEntry = {
+    date: dateISO,
+    weights: cleanWeights.map((weight) => Number(weight.toFixed(2))),
+    weight: Number(Math.max(...cleanWeights).toFixed(2)),
+    sets: exercise.sets || "",
+    completedSets: cleanWeights.length,
+    reps: exercise.reps || "",
+  };
+  const history = getExerciseHistory(exercise.id).filter((entry) => entry.date !== dateISO);
+  state.program.history[exercise.id] = [...history, nextEntry].sort((a, b) => String(a.date).localeCompare(String(b.date)));
   exercise.sessionWeights = [];
   return true;
+}
+
+function updateExerciseHistoryEntry(exerciseId, dateISO, weightsText) {
+  const weights = parseWeightsText(weightsText);
+  if (!weights.length) return false;
+  const entries = getExerciseHistory(exerciseId);
+  const entry = entries.find((item) => item.date === dateISO);
+  if (!entry) return false;
+  entry.weights = weights.map((weight) => Number(weight.toFixed(2)));
+  entry.weight = Number(Math.max(...weights).toFixed(2));
+  entry.completedSets = weights.length;
+  state.sessions.forEach((session) => {
+    if (session.date !== dateISO) return;
+    const sessionExercise = (session.exercises || []).find((exercise) => exercise.exerciseId === exerciseId);
+    if (!sessionExercise) return;
+    sessionExercise.weights = [...entry.weights];
+    sessionExercise.sets = entry.sets || sessionExercise.sets || "";
+    sessionExercise.reps = entry.reps || sessionExercise.reps || "";
+  });
+  saveState();
+  renderImprovements();
+  renderStats();
+  renderWorkouts();
+  return true;
+}
+
+function deleteExerciseHistoryEntry(exerciseId, dateISO) {
+  state.program.history[exerciseId] = getExerciseHistory(exerciseId).filter((entry) => entry.date !== dateISO);
+  if (!state.program.history[exerciseId].length) delete state.program.history[exerciseId];
+  state.sessions = state.sessions.map((session) => ({
+    ...session,
+    exercises: (session.exercises || []).filter((exercise) => !(exercise.exerciseId === exerciseId && session.date === dateISO)),
+  }));
+  saveState();
+  renderImprovements();
+  renderStats();
+  renderWorkouts();
 }
 
 function resetWorkoutSession(workout, dateISO = activeLogDate()) {
@@ -1189,7 +1239,16 @@ function renderImprovementCard(row) {
   const detailRows = row.entries
     .slice()
     .reverse()
-    .map((entry) => `<li>${formatDate(entry.date)} - ${entryWeightsLabel(entry)}${entry.completedSets ? ` - ${entry.completedSets} serie` : ""}${entry.reps ? ` - ${entry.reps} rip.` : ""}</li>`)
+    .map(
+      (entry) => `
+        <li class="editable-history-row">
+          <span>${formatDate(entry.date)}${entry.completedSets ? ` - ${entry.completedSets} serie` : ""}${entry.reps ? ` - ${entry.reps} rip.` : ""}</span>
+          <input type="text" value="${escapeHtml(entryWeights(entry).join(" / "))}" aria-label="Modifica pesi ${escapeHtml(row.name)} ${formatDate(entry.date)}" />
+          <button type="button" data-action="save-history" data-date="${entry.date}">Salva</button>
+          <button type="button" data-action="delete-history" data-date="${entry.date}">Togli</button>
+        </li>
+      `,
+    )
     .join("");
   card.innerHTML = `
     <button class="improvement-head" type="button">
@@ -1205,6 +1264,15 @@ function renderImprovementCard(row) {
   `;
   card.querySelector(".improvement-head").addEventListener("click", () => {
     card.querySelector(".improvement-detail").classList.toggle("hidden");
+  });
+  card.querySelectorAll("[data-action='save-history']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const input = button.closest(".editable-history-row").querySelector("input");
+      if (!updateExerciseHistoryEntry(row.exerciseId, button.dataset.date, input.value)) input.focus();
+    });
+  });
+  card.querySelectorAll("[data-action='delete-history']").forEach((button) => {
+    button.addEventListener("click", () => deleteExerciseHistoryEntry(row.exerciseId, button.dataset.date));
   });
   return card;
 }
@@ -1399,13 +1467,32 @@ function renderStats() {
     metricsCard.className = "session-card";
     metricsCard.innerHTML = `
       <h3>Peso e misure</h3>
-      <ol>
+      <div class="editable-metric-list">
         ${state.bodyMetrics
           .slice(0, 8)
-          .map((metric) => `<li>${formatDate(metric.date)} - ${metric.weight ? `${metric.weight} kg` : "peso n/d"}${metric.measures ? ` - ${escapeHtml(metric.measures)}` : ""}</li>`)
+          .map(
+            (metric) => `
+              <div class="editable-metric-row" data-metric-id="${escapeHtml(metric.id)}">
+                <strong>${formatDate(metric.date)}</strong>
+                <input class="metric-weight-input" type="number" min="0" step="0.1" value="${escapeHtml(metric.weight || "")}" placeholder="kg" />
+                <input class="metric-measures-input" type="text" value="${escapeHtml(metric.measures || "")}" placeholder="misure" />
+                <button type="button" data-action="save-metric">Salva</button>
+                <button type="button" data-action="delete-metric">Togli</button>
+              </div>
+            `,
+          )
           .join("")}
-      </ol>
+      </div>
     `;
+    metricsCard.querySelectorAll("[data-action='save-metric']").forEach((button) => {
+      button.addEventListener("click", () => {
+        const row = button.closest(".editable-metric-row");
+        updateBodyMetric(row.dataset.metricId, row.querySelector(".metric-weight-input").value, row.querySelector(".metric-measures-input").value);
+      });
+    });
+    metricsCard.querySelectorAll("[data-action='delete-metric']").forEach((button) => {
+      button.addEventListener("click", () => deleteBodyMetric(button.closest(".editable-metric-row").dataset.metricId));
+    });
     els.sessionHistory.append(metricsCard);
   }
 
@@ -1423,6 +1510,22 @@ function renderStats() {
     `;
     els.sessionHistory.append(historyCard);
   }
+}
+
+function updateBodyMetric(metricId, weightValue, measuresValue) {
+  const metric = state.bodyMetrics.find((item) => item.id === metricId);
+  if (!metric) return;
+  const weight = Number(weightValue);
+  metric.weight = Number.isFinite(weight) && weight > 0 ? Number(weight.toFixed(1)) : "";
+  metric.measures = String(measuresValue || "").trim();
+  saveState();
+  renderStats();
+}
+
+function deleteBodyMetric(metricId) {
+  state.bodyMetrics = state.bodyMetrics.filter((metric) => metric.id !== metricId);
+  saveState();
+  renderStats();
 }
 
 function renderProgressPhotos() {
@@ -1777,6 +1880,7 @@ function renderWorkoutFooter(workoutIndex) {
       targetDate,
     );
     if (savedExercises.length) {
+      state.sessions = state.sessions.filter((session) => !(session.date === targetDate && session.workoutId === workout.id));
       state.sessions.unshift(createSessionRecord(workout, savedExercises, skippedCount, targetDate));
     }
     resetWorkoutSession(workout, targetDate);

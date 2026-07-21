@@ -20,9 +20,11 @@ Web app mobile-first per importare una scheda di allenamento in formato testo, s
 - Calendario mensile cliccabile con mesi precedenti e successivi
 - Calendario compatto apribile solo quando serve
 - Clic su un giorno per scegliere V fatto, 0 da fare, vuoto o compilare un allenamento vecchio con i pesi corretti
+- Allenamento vecchio riapribile con pesi gia compilati, modificabile e risalvabile
 - Timer recupero su ogni esercizio, calcolato dai secondi scritti nella scheda
 - Pulsante V su ogni esercizio per segnare cosa hai completato oggi
 - Pesi per singola serie con tasto Fatto, salvati nello storico e nei miglioramenti
+- Salvataggio senza doppioni: stesso allenamento nello stesso giorno viene aggiornato
 - Invio dell'intero allenamento ai miglioramenti anche se alcuni esercizi sono stati saltati
 - Dopo l'invio ai miglioramenti l'allenamento si resetta per poterlo rifare la volta dopo
 - Il calendario segna automaticamente il giorno come fatto quando invii l'allenamento
@@ -31,9 +33,11 @@ Web app mobile-first per importare una scheda di allenamento in formato testo, s
 - Backup JSON esportabile e importabile
 - Report progressi stampabile/salvabile in PDF
 - Peso corpo e misure salvati nel tempo
+- Peso corpo e misure modificabili o eliminabili se inseriti male
 - Archivio automatico delle vecchie schede quando salvi un nuovo programma
 - Statistiche e miglioramenti aggiornati dai carichi salvati
 - Miglioramenti con grafici a linea curva per esercizio, date, pesi e ripetizioni
+- Pesi gia salvati modificabili o eliminabili dai miglioramenti
 - Mappa corpo testuale per singolo allenamento, con riconoscimento automatico e modifica manuale del gruppo muscolare
 - Foto progressi salvate nel profilo locale
 - Campi modificabili per nome esercizio, serie, ripetizioni, recupero e carico
