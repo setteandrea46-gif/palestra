@@ -836,8 +836,29 @@ button:focus-visible {
 }
 
 .history summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   color: var(--accent);
   font-weight: 850;
+}
+
+.exercise-help-link {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #2563eb);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 950;
+  line-height: 1;
+  text-decoration: none;
 }
 
 .history-chart {

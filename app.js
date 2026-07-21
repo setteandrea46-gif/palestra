@@ -1689,6 +1689,11 @@ function printProgressReport() {
   reportWindow.print();
 }
 
+function exerciseGoogleUrl(exerciseName) {
+  const query = `come fare ${exerciseName || "esercizio palestra"} palestra`;
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}&tbm=vid`;
+}
+
 function updateExercise(exerciseId, patch) {
   const workout = state.program.workouts[state.selectedWorkout];
   const exercise = workout.exercises.find((item) => item.id === exerciseId);
@@ -1804,6 +1809,14 @@ function renderExerciseCard(exercise) {
   });
 
   card.append(renderHistory(exercise));
+  const history = card.querySelector(".history");
+  const historySummary = history?.querySelector("summary");
+  if (historySummary) {
+    historySummary.innerHTML = `
+      <span>Storico progressi</span>
+      <a class="exercise-help-link" href="${exerciseGoogleUrl(exercise.name)}" target="_blank" rel="noopener noreferrer" aria-label="Guarda come si fa ${escapeHtml(exercise.name)}">?</a>
+    `;
+  }
   return card;
 }
 

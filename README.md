@@ -43,6 +43,7 @@ Web app mobile-first per importare una scheda di allenamento in formato testo, s
 - Campi modificabili per nome esercizio, serie, ripetizioni, recupero e carico
 - Campo peso per ogni esercizio con ultimo peso usato come riferimento
 - Storico progressi per esercizio con mini grafico e lista date/pesi
+- Pulsante link su ogni esercizio per cercare subito su Google come si esegue
 - Salvataggio persistente nel browser tramite `localStorage`
 
 ## Avvio
