@@ -1169,6 +1169,10 @@ function latestWeightLabel(exerciseId) {
   return `Ultima sessione: ${entryWeightsLabel(latest)} il ${formatDate(latest.date)}`;
 }
 
+function latestHistoryEntry(exerciseId) {
+  return getExerciseHistory(exerciseId).at(-1);
+}
+
 function renderHistory(exercise) {
   const historyNode = els.historyTemplate.content.firstElementChild.cloneNode(true);
   const chart = historyNode.querySelector(".history-chart");
@@ -1914,6 +1918,7 @@ function renderExerciseCard(exercise) {
   const timerActive = state.activeTimer?.exerciseId === exercise.id;
   const timerLabel = timerActive ? formatTimer(Math.max(0, state.activeTimer.remaining)) : formatTimer(restSeconds);
   const currentWeights = Array.isArray(exercise.sessionWeights) ? exercise.sessionWeights : [];
+  const latestEntry = latestHistoryEntry(exercise.id);
   const setWeightInputs = Array.from({ length: setCount }, (_, index) => `
     <label>
       <span>Serie ${index + 1}</span>
@@ -1950,7 +1955,10 @@ function renderExerciseCard(exercise) {
       <button class="timer-play ${timerActive ? "running" : ""}" type="button" aria-label="Avvia timer recupero"></button>
       <button class="timer-reset" type="button" aria-label="Reset timer"></button>
     </div>
-    <p class="last-weight">${latestWeightLabel(exercise.id)}</p>
+    <div class="last-weight-row">
+      <p class="last-weight">${latestWeightLabel(exercise.id)}</p>
+      <button class="edit-last-session" type="button" ${latestEntry ? "" : "disabled"} aria-label="Modifica pesi ultima sessione">Mod</button>
+    </div>
     <div class="set-weights">
       <div class="set-weight-grid">${setWeightInputs}</div>
       <button class="save-weight" type="button">Fatto</button>
@@ -1977,6 +1985,18 @@ function renderExerciseCard(exercise) {
       stopExerciseTimer();
       renderWorkouts();
     }
+  });
+
+  card.querySelector(".edit-last-session").addEventListener("click", () => {
+    const entry = latestHistoryEntry(exercise.id);
+    if (!entry) return;
+    exercise.sessionWeights = entryWeights(entry);
+    state.activeEntryDate = entry.date;
+    [...card.querySelectorAll(".set-weight-input")].forEach((input, index) => {
+      input.value = exercise.sessionWeights[index] || "";
+    });
+    saveState();
+    renderWorkouts();
   });
 
   card.querySelector(".exercise-name-input").addEventListener("change", (event) => {

@@ -700,6 +700,36 @@ button:focus-visible {
   font-size: 0.94rem;
 }
 
+.last-weight-row {
+  display: grid;
+  grid-template-columns: 1fr 42px;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0 10px;
+}
+
+.last-weight-row .last-weight {
+  margin: 0;
+}
+
+.edit-last-session {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  border-radius: 50%;
+  background: rgba(34, 211, 238, 0.14);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.edit-last-session:disabled {
+  opacity: 0.38;
+}
+
 .exercise-actions {
   display: grid;
   grid-template-columns: 1fr 34px 46px 42px 42px;
